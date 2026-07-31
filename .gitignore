@@ -1,0 +1,19 @@
+# Working notes — local only, never committed
+planning/
+
+# Claude Code agent scratch
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Data / exports pulled down for checking
+*.csv
+*.tif
+*.tif.aux.xml
