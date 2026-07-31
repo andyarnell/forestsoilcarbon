@@ -1,5 +1,27 @@
 # Changelog — forest_soil_carbon.js (GEE app)
 
+## v0.4.0 (FRA does not mandate a depth — corrected)
+
+- **Removed the claim that 0–30 cm is the "FRA default". It is not.** FRA 2020 and FRA 2025 both
+  define soil carbon as "organic carbon in mineral and organic soils (including peat) **to a
+  specified depth chosen by the country and applied consistently through the time series**", and
+  the reporting table has a field "Soil depth (cm) used for soil carbon". FRA adopts the IPCC
+  pool definitions but not IPCC's 30 cm Tier 1 convention.
+  Reason: v0.1.0–v0.3.0 labelled the depth selector "0-30 cm (FRA default)", which would have led
+  a reporting officer to believe the depth was prescribed. It is a country choice, and the
+  forest-area-weighted mean countries actually report is **41 cm** — 30 cm in Asia and Oceania,
+  32 Europe, 34 South America, 41 Africa, 70 in North and Central America.
+- **The results panel now names the FRA field and the depth to enter with it**, and says to keep
+  the depth consistent across the time series. 0–30 cm is presented as what the global data
+  supports, not as a requirement — there is no global soil carbon *stock* product below 30 cm at
+  all.
+- Docs: recorded that **FRA 2025 already uses this method** — GSOCmap overlaid with global forest
+  cover to gap-fill non-reporting countries, new in 2025. FAO's published figures are therefore a
+  benchmark the tool should be able to reproduce. Also recorded GSOCmap's composition (about a
+  third of its area is not a national submission), its ±20% stated uncertainty, and that the old
+  "SoilGrids runs much higher than GSOCmap" comparison is about SoilGrids v1 (2017) and reverses
+  for SoilGrids 2.0 — 599 Pg against GSOCmap's 682 Pg for 0–30 cm.
+
 ## v0.3.0 (pixel inspector)
 
 - **Click the map to read the values behind the numbers.** A "Pixel values" block in the results

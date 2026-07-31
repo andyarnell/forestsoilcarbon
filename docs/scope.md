@@ -33,17 +33,73 @@ authoritative figure.
 
 ## Soil depth
 
+**FRA does not mandate a depth.** The definition is identical in FRA 2020 and FRA 2025:
+
+> Organic carbon in mineral and organic soils (including peat) **to a specified depth chosen by
+> the country and applied consistently through the time series**.
+
+The reporting table carries a field, *"Soil depth (cm) used for soil carbon"*. The only
+requirements are that the country picks a depth, applies it consistently across the time series,
+and states it. FRA adopts the IPCC carbon-pool *definitions* but not IPCC's 30 cm Tier 1
+convention.
+
+What countries actually report varies widely. FRA 2025 gives a forest-area-weighted global mean
+of **41 cm**:
+
+| Region | Mean reported depth |
+|---|---|
+| Asia and Oceania | 30 cm |
+| Europe | 32 cm |
+| South America | 34 cm |
+| Africa | 41 cm |
+| North and Central America | 70 cm |
+
+So **0–30 cm is what the global data supports, not what FRA requires.** Both global layers are
+0–30 cm because that is the only depth at which a global soil carbon *stock* product exists —
+GSOCmap is 0–30 cm only, and SoilGrids' 30–100 cm stock layer is still listed as in development.
+
 The depth selector drives everything else: **only soil carbon layers that actually represent the
 selected depth are offered.** Depths are never mixed within a run, because a 0–30 cm figure is not
-comparable with a deeper one and there is no way to split a deep value back down.
-
-The default is **0–30 cm**, and today both global layers are 0–30 cm, so the other depth options
-show "no global layer available at this depth — supply your own asset". That is honest rather
-than empty: it means a country with a deeper national map can still use the tool, and adding a
+comparable with a deeper one and a deep value cannot be split back down. Depths with no matching
+layer say "no global layer available at this depth — supply your own asset", which is honest
+rather than empty: a country with a deeper national map can still use the tool, and adding a
 deeper global product later makes that depth selectable with no code change.
 
-0–30 cm is provisional. It matches what GSOCmap reports and is the usual soil carbon reporting
-standard, but the FRA requirement has not been confirmed.
+**If you report a figure from this tool, state 0–30 cm in the FRA depth field**, and do not
+switch depth between cycles.
+
+## Relationship to FRA's own gap-filling
+
+FRA 2025 already fills soil carbon for non-reporting countries this way:
+
+> For non-reporting countries and areas, carbon-stock estimates were calculated by multiplying
+> subregional averages for each carbon pool by forest area, with the exception of soil organic
+> carbon, for which estimates were derived from the Global Soil Organic Carbon map. This map,
+> which provides a 1-km soil-carbon grid for a depth of 0–30 cm, **was overlayed with available
+> global forest/tree-cover layers that aligned best with reported forest areas** to derive
+> country-specific estimates.
+
+That is this tool's method. It is new in FRA 2025 — FRA 2020 used subregional averages for every
+pool including soil.
+
+Two consequences. First, the approach is not novel or unsanctioned; it is what FAO already does.
+Second, FAO's published FRA 2025 figures are a **benchmark**: a country's number from this tool
+should be reproducible against them, and a large divergence means the forest layer, the boundary
+set, or the GSOCmap version differs.
+
+Note also that soil carbon is an **optional** FRA field (only above- and below-ground biomass are
+mandatory), and only around 77 countries report it, covering roughly 70% of global forest area.
+That gap is the reason this tool exists.
+
+## Litter is not soil carbon
+
+FRA counts litter as a separate pool, defined as non-living biomass "lying dead in various states
+of decomposition **above the mineral or organic soil**". For peatlands the peat itself is soil,
+not litter.
+
+SoilGrids draws the boundary in the same place — "litter layers on top of mineral soils were
+excluded from further modelling" — so the global layers and the FRA pool definition agree on this
+point. The O horizon is in neither.
 
 ## Soil carbon stocks vs concentrations
 

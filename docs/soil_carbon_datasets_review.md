@@ -3,6 +3,59 @@
 Working notes against the action "review soil carbon datasets and validation". Incomplete — this
 is a live document, not a conclusion.
 
+## How the two products compare
+
+| | GSOCmap v1.6 | SoilGrids 2.0 |
+|---|---|---|
+| Global 0–30 cm stock | **682 Pg C** | **599 Pg C** |
+| Stated uncertainty | ±144 Pg (~20%), ships a SD layer | none published for `ocs` |
+| Validation | third-party: index of agreement 0.50, mean gross error 35.07 t/ha | none published for `ocs`; SOC concentration MEC 0.47 |
+| Built from | national submissions, harmonised | one global quantile random forest |
+
+**Do not carry over the old "SoilGrids is much higher than GSOCmap" claim — it has reversed.**
+That comparison came from SoilGrids **250m v1 (2017)**, which gave 1267 Pg, 86% above GSOCmap.
+SoilGrids **2.0** gives 599 Pg, which is *below* GSOCmap. The widely cited intercomparison
+(Lin et al. 2023, range 577–1171 Pg across five products) explicitly used v1 "for method
+consistency". Anyone quoting that literature about SoilGrids 2.0 is quoting the wrong version.
+
+That the two now sit within ~12% of each other is reassuring, but they are not independent:
+about **1% of GSOCmap's area is literally SoilGrids**, used as an external dataset for 39 countries.
+
+### GSOCmap composition — the limitation that matters most
+
+From the v1.6 technical report (Table 4.1), by share of world area:
+
+| Source | Maps | % of area |
+|---|---|---|
+| Country submission | 74 | 64.8% |
+| Joint effort with GSP | 13 | 7.8% |
+| **GSP gap-filling (public data + digital soil mapping)** | 69 | **26.4%** |
+| External dataset (soilgrids.org) | 39 | 1.0% |
+
+So roughly **a third of the map is not a national product**. FAO's own diagnosis of the visible
+border artefacts is worth quoting, because it is not the obvious one:
+
+> The difference in mapping methods is **not** the primary source of border inconsistency… The
+> primary source of uncertainty and border inconsistencies appears to be in the original point
+> data quality and representativity.
+
+Two further limitations that bear directly on the numbers this tool produces:
+
+- **Bulk density.** Only 8% of countries used measured bulk density throughout; over 55% used
+  pedotransfer functions and only 25% used locally fitted ones.
+- **Coarse fragments.** Only 17% had measured data, and **almost 40% of countries used no
+  coarse-fragment information at all** — which systematically overestimates stock in stony soils.
+- **Age.** Only 25% of countries have all data post-1990. FAO state GSOCmap "can be used as a
+  baseline for SOC monitoring only for the countries with all the submitted data originating from
+  recent soil surveys."
+
+### Uncertainty cannot currently be propagated in Earth Engine
+
+ISRIC serve only the `_mean` assets on GEE; the 5th/50th/95th percentile layers are documented as
+"will be uploaded shortly". So even if the tool wanted to carry an uncertainty band, the inputs
+are not there. GSOCmap does ship a standard-deviation layer, though only 22 countries contributed
+uncertainty inputs to it.
+
 ## The stock vs concentration problem
 
 This is the main methodological trap, and the reason the app blocks some layers from the
@@ -153,8 +206,38 @@ evenly distributed with respect to forest. Whether the maps are systematically b
 forest, relative to their overall accuracy, is the question that actually matters here and is not
 answered by published global validation statistics.
 
+## If depth harmonisation is ever needed
+
+Not needed today — every layer offered is already a single 0–30 cm value. Recorded so it is not
+reinvented badly later.
+
+FAO's own *Soil Organic Carbon Mapping Cookbook* prescribes **equal-area (mass-preserving)
+splines** (`GSIF::mpspline`, `mpspline2`, default λ = 0.1), after Ponce-Hernandez et al. (1986)
+and Bishop et al. (1999), who found splines beat exponential and polynomial fits on every soil
+attribute tested. That is the method to use, not ad hoc interpolation.
+
+Two traps:
+
+- **Layer means are not point values.** SoilGrids 2.0, ICP Forests and most inventories report a
+  value that applies across an interval. The correct aggregation is a simple thickness-weighted
+  mean — no interpolation. Applying a trapezoidal rule to layer means as if they were point
+  depths introduces error for nothing. Products reporting at *point* depths (OpenLandMap,
+  SoilGrids 1.0) do need integration, and mixing the two conventions is the easy mistake.
+- **Trapezoidal interpolation over-estimates.** SOC declines convexly with depth, so a chord
+  through 0/10/30 cm lies above the true curve. Using published forest exponential fits
+  (Murphy et al. 2019, woodland k ≈ 0.081–0.128 cm⁻¹) the bias is **+7% to +22%** for 0–30 cm; a
+  naive arithmetic mean of three point values is far worse, +25% to +54%. Corroborated by
+  Hiederer (2009, JRC EUR 23980 EN), who states the mid-depth point value over-estimates the
+  layer mean and gives a correction.
+- **Exception: Podzols and Spodosols.** An ortstein or spodic horizon can make the 0–30 cm profile
+  near-uniform or even peaked, so the convexity assumption fails. Schrumpf et al. (2011) measured
+  essentially flat carbon density through 0–30 cm at Le Bray (French coniferous podzol). Relevant
+  for boreal and temperate coniferous forest.
+
 ## Open
 
-- Confirm the FRA reporting depth.
+- Confirm with Isabella whether FAO wants gap-filled countries harmonised to 0–30 cm, or matched
+  to the depth each country previously reported. The second is not possible with current global
+  data — there is no global stock product below 30 cm — which is itself a finding worth relaying.
 - Discuss recommended datasets with Isabella (see the action tracker).
 - Decide whether to add the bulk-density conversion path for national concentration maps.

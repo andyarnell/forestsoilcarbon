@@ -44,8 +44,12 @@ The global layers the app offers, with resolutions, units, citations and caveats
 concentration products cannot produce the figure FRA asks for.
 
 The depth selector filters the soil carbon list: you only see layers that actually represent the
-depth you picked, and depths are never mixed in one run. Both global layers are currently
-**0–30 cm** — see [`docs/scope.md`](docs/scope.md).
+depth you picked, and depths are never mixed in one run. Both global layers are **0–30 cm**,
+because that is the only depth at which a global soil carbon *stock* product exists.
+
+**FRA does not mandate a depth** — countries choose one and apply it consistently across the time
+series, then state it in the "Soil depth (cm) used for soil carbon" field. The global average
+countries report is 41 cm. See [`docs/scope.md`](docs/scope.md).
 
 ## Scope and status
 

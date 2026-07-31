@@ -1,5 +1,5 @@
 // Forest Soil Carbon App
-var APP_VERSION = "0.3.0";
+var APP_VERSION = "0.4.0";
 
 // Changelog: see CHANGELOG.md
 
@@ -85,12 +85,21 @@ var QUANTITY = {
 // later means adding a dataset entry with that depth_cm -- the option becomes
 // selectable on its own.
 //
-// 0-30 cm is the working assumption for FRA. Not yet confirmed -- see
-// docs/scope.md.
+// FRA does NOT mandate a depth. Both FRA 2020 and FRA 2025 define soil carbon
+// as "organic carbon in mineral and organic soils (including peat) to a
+// specified depth chosen by the country and applied consistently through the
+// time series", and the reporting table has a field "Soil depth (cm) used for
+// soil carbon". The forest-area-weighted mean depth countries actually report
+// is 41 cm (FRA 2025): 30 cm Asia/Oceania, 32 Europe, 34 South America,
+// 41 Africa, 70 North and Central America.
+//
+// So 0-30 cm is what the global data supports, NOT what FRA asks for. A country
+// reporting at another depth must say so, and must not silently swap depth
+// between cycles. See docs/scope.md.
 // =============================================================================
 
 var DEPTH_OPTIONS = [
-  {value: '0-30', label: '0-30 cm (FRA default)'},
+  {value: '0-30', label: '0-30 cm'},
   {value: '0-100', label: '0-100 cm'},
   {value: 'other', label: 'Other / not stated'}
 ];
@@ -662,6 +671,11 @@ var optionsWidgets = [
   ui.Label('Soil depth', BODY_STYLE), depthSelect, socDepthNoteLabel,
   ui.Label('Only layers matching this depth are offered. Depths cannot be ' +
            'mixed - a 0-30 cm figure is not comparable with a deeper one.', HINT_STYLE),
+  ui.Label('FRA does not mandate a depth: countries choose one and apply it ' +
+           'consistently across the time series. Report whichever depth you ' +
+           'used in the "Soil depth (cm) used for soil carbon" field. The ' +
+           'global average countries report is 41 cm; the global layers here ' +
+           'are 0-30 cm.', HINT_STYLE),
   ui.Label('Analysis scale', BODY_STYLE), scaleSelect,
   ui.Label('Match this to the finest input. Coarser is faster.', HINT_STYLE)
 ];
@@ -916,8 +930,10 @@ function runAnalysis() {
                   formatNumber(result.soc_in_forest_total / 1e6, 1) + ' Mt C');
       showMessage('Mean soil carbon in forest: ' +
                   formatNumber(result.mean, 1) + ' t C/ha', HEADING_STYLE);
-      showMessage('This is the figure FRA asks for: soil organic carbon stock, ' +
-                  socCfg.depth_cm + ' cm, tonnes of carbon per hectare.', HINT_STYLE);
+      showMessage('FRA table 2d "Soil carbon", in tonnes of carbon per hectare. ' +
+                  'Report the depth as ' + socCfg.depth_cm.replace('-', '–') +
+                  ' cm in the "Soil depth (cm) used for soil carbon" field, and ' +
+                  'keep the same depth across the time series.', HINT_STYLE);
       addFraComparison(countryName);
     } else {
       showMessage('Mean soil carbon concentration in forest: ' +
