@@ -1,5 +1,19 @@
 # Changelog — forest_soil_carbon.js (GEE app)
 
+## v0.5.0 (clip to the selected country)
+
+- **Map layers are clipped to the selected country**, with the border drawn as an outline so the
+  clip reads as a boundary rather than a data gap. Reason: the map previously showed global layers
+  while the results panel reported one country, so the picture and the numbers described different
+  areas. No figure changes — the statistics were already restricted by `reduceRegions` over the
+  same polygons.
+- **The pixel inspector samples the clipped images**, so the map, a clicked pixel and the reported
+  mean all describe one area. Clicking outside the border now says "outside <country>" rather than
+  reporting a value that was never in the analysis — which is a different thing from a genuine
+  data gap inside the border, and the two should not look alike.
+- Statistics still run on the unclipped images; `reduceRegions` already restricts them, so
+  clipping first would only add work.
+
 ## v0.4.0 (FRA does not mandate a depth — corrected)
 
 - **Removed the claim that 0–30 cm is the "FRA default". It is not.** FRA 2020 and FRA 2025 both

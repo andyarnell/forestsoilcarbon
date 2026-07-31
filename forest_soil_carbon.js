@@ -1,5 +1,5 @@
 // Forest Soil Carbon App
-var APP_VERSION = "0.4.0";
+var APP_VERSION = "0.5.0";
 
 // Changelog: see CHANGELOG.md
 
@@ -860,34 +860,58 @@ function runAnalysis() {
   var countryName = countrySelect.getValue();
   var scale = Number(scaleSelect.getValue());
   var quantity = QUANTITY[socCfg.quantity];
+  var isGlobal = (countryName === GLOBAL_OPTION);
+  var regions = getRegions(countryName);
 
   var socImage = buildSocImage(socCfg);
   var forestArea = buildForestArea(forestCfg);
   var forestFraction = buildForestFraction(forestCfg);
 
-  // Hand the inspector the exact images behind the country figures, so a
-  // clicked pixel and the reported mean can never disagree about their inputs.
+  // Clip what is drawn to the selected country. The statistics are already
+  // restricted by reduceRegions over the same polygons, so this changes no
+  // number -- but it stops the map showing a global layer while the panel
+  // reports one country, and it makes a clicked pixel outside the border read
+  // "no data" rather than a value that was never in the analysis.
+  function clipToCountry(img) {
+    return isGlobal ? img : img.clip(regions);
+  }
+
+  var socDisplay = clipToCountry(socImage);
+  var forestFractionDisplay = clipToCountry(forestFraction);
+  var forestAreaDisplay = clipToCountry(forestArea);
+
+  // Hand the inspector the same clipped images that are on the map, so the
+  // map, a clicked pixel and the reported mean all describe one area.
   lastRun = {
-    socImage: socImage,
-    forestFraction: forestFraction,
-    forestArea: forestArea,
+    socImage: socDisplay,
+    forestFraction: forestFractionDisplay,
+    forestArea: forestAreaDisplay,
     socCfg: socCfg,
     forestCfg: forestCfg,
-    scale: scale
+    scale: scale,
+    countryName: countryName,
+    isGlobal: isGlobal
   };
 
-  map.addLayer(socImage,
+  map.addLayer(socDisplay,
                socCfg.quantity === 'stock' ? SOC_STOCK_VIS : SOC_CONC_VIS,
                'Soil carbon (' + quantity.unit + ')', true, 0.8);
-  map.addLayer(forestFraction.selfMask(), FOREST_VIS,
+  map.addLayer(forestFractionDisplay.selfMask(), FOREST_VIS,
                'Forest: ' + forestCfg.label, true, 0.7);
 
   // The per-pixel product is only tonnes of carbon when the input is a stock.
   // For a concentration it is g/kg*ha, which is not a quantity -- do not draw
   // it and do not name it.
   if (quantity.summable) {
-    map.addLayer(socImage.multiply(forestArea).selfMask(), SOC_IN_FOREST_VIS,
+    map.addLayer(socDisplay.multiply(forestAreaDisplay).selfMask(), SOC_IN_FOREST_VIS,
                  'Soil carbon in forest (t C per pixel)', false, 1);
+  }
+
+  // Outline the border so the clip is visibly a boundary, not a data gap.
+  if (!isGlobal) {
+    map.addLayer(
+      ee.Image().byte().paint({featureCollection: regions, color: 1, width: 2}),
+      {palette: ['#222222']}, 'Country boundary', true);
   }
 
   showRunHeader(countryName, socCfg, forestCfg, scale);
@@ -907,7 +931,8 @@ function runAnalysis() {
 
   showMessage('Computing...', HINT_STYLE);
 
-  var regions = getRegions(countryName);
+  // Statistics run on the UNCLIPPED images -- reduceRegions already restricts
+  // to `regions`, so clipping first would just add work.
   var stats = computeCountryStats(socImage, forestArea, regions, scale, socCfg);
 
   computeTotals(stats, socCfg).evaluate(function (result, error) {
@@ -1025,6 +1050,17 @@ function inspectPixel(coords) {
     var soc = values.soc_value;
     var fraction = values.forest_fraction;
     var areaHa = values.forest_area_ha;
+
+    var isBlank = function (v) { return v === null || v === undefined; };
+
+    // Everything masked with a country selected means the click landed outside
+    // the clip, which is a different thing from a genuine data gap inside it.
+    if (!lastRun.isGlobal && isBlank(soc) && isBlank(fraction) && isBlank(areaHa)) {
+      showInspectorMessage('Outside ' + lastRun.countryName + '. The layers are clipped ' +
+                           'to the selected country - click inside the border, or switch ' +
+                           'to ' + GLOBAL_OPTION + '.', HINT_STYLE);
+      return;
+    }
 
     showInspectorMessage('Soil carbon: ' + (soc === null || soc === undefined
       ? 'no data'
