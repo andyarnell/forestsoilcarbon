@@ -107,8 +107,46 @@ mismatch is handled by summarising at 1 km, but it means small or fragmented for
 poorly represented. Worth reviewing whether any finer global or regional SOC product exists —
 `ISDASOIL/Africa/v1/carbon_organic` is 30 m but Africa only, and is a concentration.
 
-**Depth.** GSOCmap is 0–30 cm only. If FRA wants a deeper interval the dataset list changes
-materially, since SoilGrids would become the only option with the depth coverage.
+**Depth.** GSOCmap is 0–30 cm only, and SoilGrids `ocs_mean` is *also* 0–30 cm only — the 30–100 cm
+stock layer is listed by ISRIC as in development. So there is currently **no global soil carbon
+stock product below 30 cm**. If FRA asks for a deeper interval, the answer is not "switch
+dataset"; it is that the data does not exist and would have to be derived from concentration
+layers, with all the problems above.
+
+Useful reference points if the depth question is reopened — proportion of first-metre SOC held in
+the top 20 cm, from Jobbágy & Jackson (2000, *Ecological Applications* 10:423–436, n = 2721
+profiles):
+
+| Biome | % of 0–100 cm SOC in top 20 cm |
+|---|---|
+| Temperate deciduous forest | 52 |
+| Boreal forest | 50 |
+| Temperate evergreen forest | 47 |
+| Tropical evergreen forest | 44 |
+| Tropical deciduous forest | 33 |
+
+De Vos et al. (2015, *Geoderma* 251–252), from 4,914 ICP Forests plots across 22 European
+countries, independently reproduce the ~50% figure and give **55–65% of first-metre SOC in the
+top 30 cm** for European forests. So a 0–30 cm figure captures roughly two thirds of the
+first-metre stock in forest — and materially less in tropical deciduous forest, where the profile
+is deepest.
+
+### SoilGrids OCS caveats that matter specifically for forest
+
+From ISRIC's own documentation and Poggio et al. (2021):
+
+- **Litter layers are excluded.** "Litter layers on top of mineral soils were excluded from
+  further modelling." The O horizon — a substantial and highly variable carbon pool in forest —
+  is not in the stock. For peat, the top of the peat layer is taken as the soil surface.
+- **Masked areas.** Predictions are restricted to land without built-up, water or glacier, using
+  an ESA Land Cover 2015 mask. This is a direct cause of the coverage gaps the app now reports.
+- **Model efficiency coefficient for SOC is 0.54.** Not a precision instrument.
+- **ISRIC explicitly discourage local use:** "SoilGrids is a global model intended for global
+  applications, the results are best suited for continental or macro region analysis."
+- SoilGrids 2.0 values are **midpoint point predictions declared constant across each interval**,
+  not spline-integrated interval means — SoilGrids 1.0 (2017) used point depths and needed
+  trapezoidal integration, so older ISRIC guidance does not transfer. Another reason the two
+  generations should not be mixed.
 
 **Forest-specific validation.** All these products are trained on soil profiles that are not
 evenly distributed with respect to forest. Whether the maps are systematically biased inside

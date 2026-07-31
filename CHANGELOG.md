@@ -1,5 +1,23 @@
 # Changelog — forest_soil_carbon.js (GEE app)
 
+## v0.3.0 (pixel inspector)
+
+- **Click the map to read the values behind the numbers.** A "Pixel values" block in the results
+  panel reports, for the clicked point: soil carbon in the layer's own unit, forest cover as a
+  percentage of the pixel, forest area in hectares, and — for stock layers — the carbon in forest
+  for that pixel. A red marker shows where you clicked, replaced on each click.
+  Reason: the inputs stopped being binary masks. Soil carbon per hectare and fractional forest
+  cover are continuous, so the value at a point is the quickest way to tell a suspicious country
+  mean from a genuine one — and the only practical way to check that a national asset's units and
+  scale factor are what the user thinks before trusting a whole run.
+- **The inspector samples the last run's images, not the current widget values**, so a clicked
+  pixel and the reported country mean can never disagree about their inputs. Changing a dropdown
+  without pressing Run leaves the inspector reporting the run you actually did.
+- **Masked pixels say "no data", not zero.** Where a pixel has forest but no soil carbon, the
+  inspector says so explicitly and notes that it is excluded from the country mean and counts
+  against the coverage percentage — making the coverage figure traceable to specific places
+  rather than an unexplained number.
+
 ## v0.2.0 (stocks only; depth drives the dataset list; three correctness fixes)
 
 - **Fixed: SoilGrids `ocs_mean` was reported 10× too low.** `scale_factor` was 0.1. ISRIC stores

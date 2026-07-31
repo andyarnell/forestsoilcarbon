@@ -1,5 +1,5 @@
 // Forest Soil Carbon App
-var APP_VERSION = "0.2.0";
+var APP_VERSION = "0.3.0";
 
 // Changelog: see CHANGELOG.md
 
@@ -225,6 +225,15 @@ var appState = {
     optionsCollapsed: true
   }
 };
+
+// Set by runAnalysis so the pixel inspector can sample exactly the images that
+// produced the country figures, rather than rebuilding them from the widgets
+// (which the user may have changed since pressing Run).
+var lastRun = null;
+
+// The click marker, kept so each click replaces the previous one instead of
+// stacking layers.
+var markerLayer = null;
 
 // Built once from GAUL_LUT so ISO3 results can be joined to the name-keyed
 // fraStats tables. gaulLut has no iso3ToName export.
@@ -719,8 +728,16 @@ var resultsPanel = ui.Panel({
   layout: ui.Panel.Layout.flow('vertical')
 });
 
+var inspectorPanel = ui.Panel({
+  widgets: [ui.Label('Run analysis, then click the map to read values here.', HINT_STYLE)],
+  layout: ui.Panel.Layout.flow('vertical')
+});
+
 var rightPanel = ui.Panel({
-  widgets: [ui.Label('Results', HEADING_STYLE), resultsPanel],
+  widgets: [
+    ui.Label('Results', HEADING_STYLE), resultsPanel,
+    ui.Label('Pixel values', HEADING_STYLE), inspectorPanel
+  ],
   layout: ui.Panel.Layout.flow('vertical'),
   style: {width: '310px', backgroundColor: 'rgba(255, 255, 255, 0.95)', padding: '2px'}
 });
@@ -728,6 +745,8 @@ var rightPanel = ui.Panel({
 var map = ui.Map();
 map.setCenter(0, 20, 2);
 map.setControlVisibility({all: true});
+map.style().set('cursor', 'crosshair');
+map.onClick(function (coords) { inspectPixel(coords); });
 
 var mainContainer = ui.Panel({
   widgets: [leftPanel, map, rightPanel],
@@ -813,6 +832,10 @@ function showRunHeader(countryName, socCfg, forestCfg, scale) {
 function runAnalysis() {
   resultsPanel.clear();
   map.layers().reset();
+  markerLayer = null;
+  lastRun = null;
+  inspectorPanel.clear();
+  inspectorPanel.add(ui.Label('Click the map to read values here.', HINT_STYLE));
 
   var socCfg = resolveSocConfig();
   var forestCfg = resolveForestConfig();
@@ -826,11 +849,23 @@ function runAnalysis() {
 
   var socImage = buildSocImage(socCfg);
   var forestArea = buildForestArea(forestCfg);
+  var forestFraction = buildForestFraction(forestCfg);
+
+  // Hand the inspector the exact images behind the country figures, so a
+  // clicked pixel and the reported mean can never disagree about their inputs.
+  lastRun = {
+    socImage: socImage,
+    forestFraction: forestFraction,
+    forestArea: forestArea,
+    socCfg: socCfg,
+    forestCfg: forestCfg,
+    scale: scale
+  };
 
   map.addLayer(socImage,
                socCfg.quantity === 'stock' ? SOC_STOCK_VIS : SOC_CONC_VIS,
                'Soil carbon (' + quantity.unit + ')', true, 0.8);
-  map.addLayer(buildForestFraction(forestCfg).selfMask(), FOREST_VIS,
+  map.addLayer(forestFraction.selfMask(), FOREST_VIS,
                'Forest: ' + forestCfg.label, true, 0.7);
 
   // The per-pixel product is only tonnes of carbon when the input is a stock.
@@ -908,6 +943,100 @@ function runAnalysis() {
     });
     showMessage('Drive export queued - see the Tasks tab.', HINT_STYLE);
   }
+}
+
+// =============================================================================
+// PIXEL INSPECTOR
+// The inputs are continuous (soil carbon per hectare, fractional forest cover),
+// so the value at a point is worth reading directly -- it is how you tell a
+// suspicious country mean from a genuine one, and how you check a national
+// asset's units and scale factor before trusting a whole run.
+// =============================================================================
+
+function showInspectorMessage(text, style) {
+  inspectorPanel.add(ui.Label(text, style || BODY_STYLE));
+}
+
+/**
+ * Sample every layer of the last run at a clicked point and report the values.
+ * @param {Object} coords  {lon, lat} from ui.Map.onClick
+ */
+function inspectPixel(coords) {
+  inspectorPanel.clear();
+
+  if (!lastRun) {
+    showInspectorMessage('Run analysis first, then click the map.', HINT_STYLE);
+    return;
+  }
+
+  var point = ee.Geometry.Point([coords.lon, coords.lat]);
+
+  if (markerLayer) { map.layers().remove(markerLayer); }
+  markerLayer = ui.Map.Layer(point, {color: 'red'}, 'Inspected point');
+  map.layers().add(markerLayer);
+
+  showInspectorMessage(formatNumber(coords.lat, 4) + ', ' +
+                       formatNumber(coords.lon, 4), HEADING_STYLE);
+  showInspectorMessage('Reading...', HINT_STYLE);
+
+  var quantity = QUANTITY[lastRun.socCfg.quantity];
+
+  // One band per reported value, so this costs a single server round trip.
+  var stack = lastRun.socImage.rename('soc_value')
+    .addBands(lastRun.forestFraction.rename('forest_fraction'))
+    .addBands(lastRun.forestArea.rename('forest_area_ha'));
+
+  stack.reduceRegion({
+    reducer: ee.Reducer.first(),
+    geometry: point,
+    scale: lastRun.scale
+  }).evaluate(function (values, error) {
+    inspectorPanel.clear();
+    showInspectorMessage(formatNumber(coords.lat, 4) + ', ' +
+                         formatNumber(coords.lon, 4), HEADING_STYLE);
+
+    if (error) {
+      showInspectorMessage('Could not read this point: ' + error, WARN_STYLE);
+      return;
+    }
+    if (!values) {
+      showInspectorMessage('No data at this point.', HINT_STYLE);
+      return;
+    }
+
+    // null means masked -- no data here -- which is different from zero and is
+    // worth saying, because masked soil pixels are what drag the coverage down.
+    var soc = values.soc_value;
+    var fraction = values.forest_fraction;
+    var areaHa = values.forest_area_ha;
+
+    showInspectorMessage('Soil carbon: ' + (soc === null || soc === undefined
+      ? 'no data'
+      : formatNumber(soc, 1) + ' ' + quantity.unit));
+
+    showInspectorMessage('Forest cover: ' + (fraction === null || fraction === undefined
+      ? 'no data'
+      : formatNumber(fraction * 100, 1) + '% of pixel'));
+
+    showInspectorMessage('Forest area: ' + (areaHa === null || areaHa === undefined
+      ? 'no data'
+      : formatNumber(areaHa, 1) + ' ha in pixel'));
+
+    if (quantity.summable && soc !== null && soc !== undefined &&
+        areaHa !== null && areaHa !== undefined) {
+      showInspectorMessage('Carbon in forest here: ' +
+                           formatNumber(soc * areaHa, 1) + ' t C in pixel', HINT_STYLE);
+    }
+
+    if ((soc === null || soc === undefined) && areaHa) {
+      showInspectorMessage('Forest with no soil carbon data - this pixel is excluded ' +
+                           'from the country mean and counts against the coverage %.',
+                           WARN_STYLE);
+    }
+
+    showInspectorMessage('Sampled at ' + lastRun.scale + ' m. Values are the analysis ' +
+                         'scale, not the layer\'s native resolution.', HINT_STYLE);
+  });
 }
 
 /**
