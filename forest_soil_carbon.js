@@ -1,5 +1,5 @@
 // Forest Soil Carbon App
-var APP_VERSION = "0.1.0";
+var APP_VERSION = "0.2.0";
 
 // Changelog: see CHANGELOG.md
 
@@ -49,68 +49,95 @@ var FRA_YEAR = 2020;
 // codes beginning with a lowercase 'x'. Excluded from country tables.
 var DISPUTED_ISO3_PREFIX = 'x';
 
+// Below this, the soil carbon layer has enough gaps over forest that the mean
+// is not representative and the results panel says so.
+var LOW_COVERAGE_WARN_PC = 90;
+
+// =============================================================================
+// QUANTITIES
+//
+// What the pixel values physically are. This is the primitive that decides what
+// the app is allowed to report:
+//
+//   'stock'          mass per area (t C/ha). Adds up over area, so both the
+//                    MEAN and the TOTAL are valid. This is what FRA asks for.
+//   'concentration'  mass fraction (g/kg). The area-weighted MEAN is a valid
+//                    quantity; the TOTAL is not -- summing a concentration over
+//                    area gives g/kg*ha, which is not a thing. No total shown.
+//   'unknown'        the user has not said. Nothing is computed.
+//
+// Units live here and are never stored per dataset, so a config cannot claim to
+// be a stock measured in g/kg. `col` is the suffix on the results column and
+// the CSV header, so a number cannot leave the app without its unit attached.
+// =============================================================================
+
+var QUANTITY = {
+  stock:         {unit: 't C/ha', col: 't_ha',    summable: true},
+  concentration: {unit: 'g/kg',   col: 'g_kg',    summable: false},
+  unknown:       {unit: '?',      col: 'unknown', summable: false}
+};
+
+// =============================================================================
+// SOIL DEPTH
+//
+// The depth dropdown drives which soil carbon layers are offered: only layers
+// whose `depth_cm` matches the selected depth appear. Adding a deeper product
+// later means adding a dataset entry with that depth_cm -- the option becomes
+// selectable on its own.
+//
+// 0-30 cm is the working assumption for FRA. Not yet confirmed -- see
+// docs/scope.md.
+// =============================================================================
+
+var DEPTH_OPTIONS = [
+  {value: '0-30', label: '0-30 cm (FRA default)'},
+  {value: '0-100', label: '0-100 cm'},
+  {value: 'other', label: 'Other / not stated'}
+];
+
 // =============================================================================
 // SOIL CARBON DATASETS
 // Add a layer by adding one object here -- there is no dataset-specific logic
 // anywhere else in this file.
 //
-//   scale_factor  multiplier applied to raw pixel values to reach `units`
-//   depth_cm      the depth the layer actually represents
-//   is_stock      true  = tonnes C per hectare (usable for statistics)
-//                 false = a concentration (g/kg, dg/kg). Displayable, but the
-//                         app refuses to compute statistics from it, because
-//                         summing a concentration as if it were a stock is
-//                         meaningless. See docs/soil_carbon_datasets_review.md
+//   quantity      key into QUANTITY above. Decides what gets reported.
+//   scale_factor  multiplier applied to raw pixel values to reach that unit
+//   depth_cm      the depth the values represent; must match a DEPTH_OPTIONS
+//                 value to be offered
+//   band          band name, or null for a single-band image
+//
+// Only layers that are already a single band at a stated depth are offered.
+// Products that split the profile into intervals or report at point depths
+// (SoilGrids soc_mean, OpenLandMap) are deliberately not included -- they are
+// concentrations, which cannot be reported as the FRA figure, and both are
+// superseded by SoilGrids ocs_mean. See docs/soil_carbon_datasets_review.md.
 // =============================================================================
 
 var SOC_DATASETS = [
   {
     key: 'gsoc_1_5',
-    label: 'GSOCmap 1.5 (FAO) - 0-30 cm',
+    label: 'GSOCmap 1.5 (FAO) - 0-30 cm stock',
     asset: 'projects/ee-andyarnellgee/assets/crosscutting/GSOCmap1_5_0',
     band: null,                  // single-band image
+    quantity: 'stock',
     scale_factor: 1,
-    units: 't/ha',
     depth_cm: '0-30',
     native_resolution_m: 1000,
-    is_stock: true,
     citation: 'FAO & ITPS (2022) Global Soil Organic Carbon Map (GSOCmap) v1.5. FAO, Rome.'
   },
   {
     key: 'soilgrids_ocs',
-    label: 'SoilGrids 2.0 organic carbon stock - 0-30 cm',
+    label: 'SoilGrids 2.0 (ISRIC) - 0-30 cm stock',
     asset: 'projects/soilgrids-isric/ocs_mean',
     band: 'ocs_0-30cm_mean',
-    scale_factor: 0.1,           // stored x10; verify against the EE catalogue
-    units: 't/ha',
+    // ISRIC stores ocs ALREADY in t/ha. Their published "conversion factor 10"
+    // converts t/ha to kg/m2, the other direction. Do not apply 0.1 here -- it
+    // would report every figure 10x too low.
+    quantity: 'stock',
+    scale_factor: 1,
     depth_cm: '0-30',
     native_resolution_m: 250,
-    is_stock: true,
     citation: 'Poggio, L. et al. (2021) SoilGrids 2.0. SOIL 7, 217-240.'
-  },
-  {
-    key: 'soilgrids_conc',
-    label: 'SoilGrids 2.0 SOC concentration - 15-30 cm (not comparable)',
-    asset: 'projects/soilgrids-isric/soc_mean',
-    band: 'soc_15-30cm_mean',
-    scale_factor: 0.1,           // dg/kg -> g/kg
-    units: 'g/kg',
-    depth_cm: '15-30',
-    native_resolution_m: 250,
-    is_stock: false,
-    citation: 'Poggio, L. et al. (2021) SoilGrids 2.0. SOIL 7, 217-240.'
-  },
-  {
-    key: 'openlandmap_conc',
-    label: 'OpenLandMap SOC concentration - 0-30 cm (not comparable)',
-    asset: 'OpenLandMap/SOL/SOL_ORGANIC-CARBON_USDA-6A1C_M/v02',
-    band: 'b30',
-    scale_factor: 0.2,           // stored x5
-    units: 'g/kg',
-    depth_cm: '0-30',
-    native_resolution_m: 250,
-    is_stock: false,
-    citation: 'Hengl, T. (2018) Soil organic carbon content in x5 g/kg at 6 standard depths. Zenodo.'
   }
 ];
 
@@ -176,7 +203,8 @@ var FOREST_DATASETS = [
 // VISUALISATION PARAMETERS
 // =============================================================================
 
-var SOC_VIS = {min: 0, max: 200, palette: ['#ffffcc', '#fed976', '#fd8d3c', '#7f2704']};
+var SOC_STOCK_VIS = {min: 0, max: 200, palette: ['#ffffcc', '#fed976', '#fd8d3c', '#7f2704']};
+var SOC_CONC_VIS = {min: 0, max: 60, palette: ['#ffffcc', '#fed976', '#fd8d3c', '#7f2704']};
 var FOREST_VIS = {min: 0, max: 1, palette: ['white', '#1b7837']};
 var SOC_IN_FOREST_VIS = {min: 0, max: 100, palette: ['#f7f4f9', '#c994c7', '#980043']};
 
@@ -228,19 +256,29 @@ function getDatasetByKey(list, key) {
 }
 
 /**
- * Build a single-band SOC image in the config's units.
- * @param {Object} cfg  a SOC_DATASETS entry
- * @return {ee.Image} band 'soc_t_ha' (or the concentration, if not a stock)
+ * Soil carbon layers available at a given depth.
+ * @param {string} depth  a DEPTH_OPTIONS value
+ * @return {Array<Object>}
+ */
+function socDatasetsForDepth(depth) {
+  return SOC_DATASETS.filter(function (d) { return d.depth_cm === depth; });
+}
+
+/**
+ * Build a single-band soil carbon image in the unit its quantity implies.
+ * @param {Object} cfg  a SOC_DATASETS-shaped config
+ * @return {ee.Image} band 'soc_value' -- deliberately unit-agnostic, because
+ *     the band may hold a stock or a concentration depending on cfg.quantity
  */
 function buildSocImage(cfg) {
   var img = ee.Image(cfg.asset);
   img = cfg.band ? img.select([cfg.band]) : img.select([0]);
-  return img.multiply(cfg.scale_factor).rename('soc_t_ha');
+  return img.multiply(cfg.scale_factor).rename('soc_value');
 }
 
 /**
  * Build forest area per pixel, in hectares.
- * @param {Object} cfg  a FOREST_DATASETS entry
+ * @param {Object} cfg  a FOREST_DATASETS-shaped config
  * @return {ee.Image} band 'forest_area_ha'
  */
 function buildForestArea(cfg) {
@@ -252,24 +290,13 @@ function buildForestArea(cfg) {
               .rename('forest_area_ha');
   }
 
-  var img = ee.Image(cfg.asset);
-  img = cfg.band ? img.select([cfg.band]) : img.select([0]);
-
-  var fraction;
-  if (cfg.type === 'binary') {
-    var threshold = (cfg.threshold === undefined || cfg.threshold === null) ? 0 : cfg.threshold;
-    fraction = img.gt(threshold);
-  } else {
-    fraction = img.clamp(0, 1);
-  }
-
   var pixelHa = ee.Image.pixelArea().divide(10000);
-  return fraction.multiply(pixelHa).rename('forest_area_ha');
+  return buildForestFraction(cfg).multiply(pixelHa).rename('forest_area_ha');
 }
 
 /**
- * Forest cover fraction, for display only.
- * @param {Object} cfg  a FOREST_DATASETS entry
+ * Forest cover fraction, 0-1.
+ * @param {Object} cfg  a FOREST_DATASETS-shaped config
  * @return {ee.Image}
  */
 function buildForestFraction(cfg) {
@@ -307,53 +334,102 @@ function getRegions(countryName) {
 // =============================================================================
 
 /**
- * Per-country forest area, SOC stock in forest, and area-weighted mean SOC.
- * @param {ee.Image} socImage        band 'soc_t_ha'
+ * Per-country forest area, carbon in forest, and the area-weighted mean.
+ *
+ * Forest pixels with no soil data are excluded from BOTH the numerator and the
+ * denominator. Reducing forest area as its own band would leave its mask
+ * independent of the soil layer's, counting those pixels in the denominator
+ * only and biasing the mean low wherever the soil layer has gaps -- which
+ * GSOCmap does. `forest_area_ha` is still reported separately so the coverage
+ * can be shown.
+ *
+ * @param {ee.Image} socImage        band 'soc_value'
  * @param {ee.Image} forestAreaImage band 'forest_area_ha'
  * @param {ee.FeatureCollection} regions
  * @param {number} scale  metres
+ * @param {Object} socCfg  used for the quantity-dependent column name
  * @return {ee.FeatureCollection} geometry-free features, one per country
  */
-function computeCountryStats(socImage, forestAreaImage, regions, scale) {
-  var socInForest = socImage.multiply(forestAreaImage).rename('soc_in_forest_t');
+function computeCountryStats(socImage, forestAreaImage, regions, scale, socCfg) {
+  var meanColumn = meanColumnName(socCfg);
 
-  var summed = socInForest.addBands(forestAreaImage).reduceRegions({
-    collection: regions,
-    reducer: ee.Reducer.sum(),
-    scale: scale,
-    tileScale: 4
-  });
+  var forestWithSoc = forestAreaImage.updateMask(socImage.mask())
+                                     .rename('forest_area_with_soc_ha');
+  var weighted = socImage.multiply(forestWithSoc).rename('soc_weighted_sum');
+
+  var summed = weighted
+    .addBands(forestWithSoc)
+    .addBands(forestAreaImage)
+    .reduceRegions({
+      collection: regions,
+      reducer: ee.Reducer.sum(),
+      scale: scale,
+      tileScale: 4
+    });
 
   return summed.map(function (f) {
-    var area = ee.Number(ee.Algorithms.If(f.get('forest_area_ha'), f.get('forest_area_ha'), 0));
-    var stock = ee.Number(ee.Algorithms.If(f.get('soc_in_forest_t'), f.get('soc_in_forest_t'), 0));
-    return ee.Feature(null, {
+    var areaAll = numberOrZero(f.get('forest_area_ha'));
+    var areaWithSoc = numberOrZero(f.get('forest_area_with_soc_ha'));
+    var weightedSum = numberOrZero(f.get('soc_weighted_sum'));
+
+    var props = {
       iso3: f.get('iso3_code'),
       country: f.get('gaul0_name'),
-      forest_area_ha: area,
-      soc_in_forest_t: stock,
-      mean_soc_t_ha: ee.Algorithms.If(area.gt(0), stock.divide(area), null)
-    });
+      forest_area_ha: areaAll,
+      forest_area_with_soc_ha: areaWithSoc,
+      soc_data_coverage_pc: ee.Algorithms.If(
+        areaAll.gt(0), areaWithSoc.divide(areaAll).multiply(100), null),
+      soc_in_forest_total: weightedSum
+    };
+    props[meanColumn] = ee.Algorithms.If(
+      areaWithSoc.gt(0), weightedSum.divide(areaWithSoc), null);
+
+    return ee.Feature(null, props);
   });
 }
 
 /**
- * Collapse a stats collection to global totals.
- * @param {ee.FeatureCollection} statsFc
- * @return {ee.Dictionary} keys 'forest_area_ha', 'soc_in_forest_t', 'mean_soc_t_ha'
+ * @param {*} value  a possibly-null feature property
+ * @return {ee.Number}
  */
-function computeTotals(statsFc) {
+function numberOrZero(value) {
+  return ee.Number(ee.Algorithms.If(value, value, 0));
+}
+
+/**
+ * The results/CSV column holding the mean, with its unit baked into the name so
+ * the number cannot travel without it.
+ * @param {Object} socCfg
+ * @return {string} e.g. 'mean_soc_t_ha'
+ */
+function meanColumnName(socCfg) {
+  return 'mean_soc_' + QUANTITY[socCfg.quantity].col;
+}
+
+/**
+ * Collapse a stats collection to totals across all its rows.
+ * @param {ee.FeatureCollection} statsFc
+ * @param {Object} socCfg
+ * @return {ee.Dictionary}
+ */
+function computeTotals(statsFc, socCfg) {
   var sums = ee.Dictionary(statsFc.reduceColumns({
-    reducer: ee.Reducer.sum().repeat(2),
-    selectors: ['soc_in_forest_t', 'forest_area_ha']
+    reducer: ee.Reducer.sum().repeat(3),
+    selectors: ['soc_in_forest_total', 'forest_area_with_soc_ha', 'forest_area_ha']
   }));
   var values = ee.List(sums.get('sum'));
-  var stock = ee.Number(values.get(0));
-  var area = ee.Number(values.get(1));
+  var weightedSum = ee.Number(values.get(0));
+  var areaWithSoc = ee.Number(values.get(1));
+  var areaAll = ee.Number(values.get(2));
+
   return ee.Dictionary({
-    soc_in_forest_t: stock,
-    forest_area_ha: area,
-    mean_soc_t_ha: ee.Algorithms.If(area.gt(0), stock.divide(area), null)
+    soc_in_forest_total: weightedSum,
+    forest_area_ha: areaAll,
+    forest_area_with_soc_ha: areaWithSoc,
+    coverage_pc: ee.Algorithms.If(
+      areaAll.gt(0), areaWithSoc.divide(areaAll).multiply(100), null),
+    mean: ee.Algorithms.If(
+      areaWithSoc.gt(0), weightedSum.divide(areaWithSoc), null)
   });
 }
 
@@ -415,34 +491,22 @@ function makeCollapsible(title, widgets, stateKey) {
   });
 }
 
-/**
- * Build the {label, value} items a ui.Select needs, plus the custom option.
- * @param {Array<Object>} datasets
- * @param {string} customLabel
- * @return {Array<Object>}
- */
-function makeSelectItems(datasets, customLabel) {
-  var items = datasets.map(function (d) {
-    return {label: d.label, value: d.key};
-  });
-  items.push({label: customLabel, value: CUSTOM_KEY});
-  return items;
-}
-
 // =============================================================================
 // UI - SOIL CARBON SECTION
+// The dataset list is rebuilt whenever the depth changes, so only layers that
+// actually represent the selected depth can be picked.
 // =============================================================================
 
 var socSelect = ui.Select({
-  items: makeSelectItems(SOC_DATASETS, 'Custom - my own GEE asset'),
-  value: SOC_DATASETS[0].key,
+  items: [],
   style: {stretch: 'horizontal', margin: '2px 4px'},
   onChange: function (key) {
-    var isCustom = (key === CUSTOM_KEY);
-    socCustomPanel.style().set({shown: isCustom});
+    socCustomPanel.style().set({shown: key === CUSTOM_KEY});
     socNoteLabel.setValue(describeSocChoice(key));
   }
 });
+
+var socNoteLabel = ui.Label('', HINT_STYLE);
 
 var socAssetBox = ui.Textbox({
   placeholder: 'projects/your-project/assets/national_soc_map',
@@ -454,48 +518,76 @@ var socBandBox = ui.Textbox({
   style: {stretch: 'horizontal', margin: '2px 4px', fontSize: '11px'}
 });
 
-var socUnitsSelect = ui.Select({
+// Defaults to 'unknown' on purpose. A user who ignores this must not get a
+// confident t C/ha figure computed from a layer of undeclared type.
+var socQuantitySelect = ui.Select({
   items: [
-    {label: 'Stock, tonnes C per hectare (t/ha)', value: 'stock'},
-    {label: 'Concentration, g/kg - display only', value: 'concentration'}
+    {label: '- I do not know -', value: 'unknown'},
+    {label: 'Stock: tonnes of carbon per hectare (t C/ha)', value: 'stock'},
+    {label: 'Concentration: grams of carbon per kg of soil (g/kg)', value: 'concentration'}
   ],
-  value: 'stock',
+  value: 'unknown',
   style: {stretch: 'horizontal', margin: '2px 4px'}
+});
+
+var socScaleFactorBox = ui.Textbox({
+  value: '1',
+  style: {stretch: 'horizontal', margin: '2px 4px', fontSize: '11px'}
 });
 
 var socCustomPanel = ui.Panel({
   widgets: [
     ui.Label('Asset ID', BODY_STYLE), socAssetBox,
     ui.Label('Band', BODY_STYLE), socBandBox,
-    ui.Label('What the values mean', BODY_STYLE), socUnitsSelect,
-    ui.Label('Must be 0-30 cm to compare with the global layers.', HINT_STYLE)
+    ui.Label('What the values mean', BODY_STYLE), socQuantitySelect,
+    ui.Label('Multiply raw values by', BODY_STYLE), socScaleFactorBox,
+    ui.Label('Leave at 1 unless your layer is stored scaled - a x10 integer ' +
+             'store is common.', HINT_STYLE),
+    ui.Label('Your layer is assumed to be the depth selected in Options.', HINT_STYLE)
   ],
   style: {shown: false}
 });
 
-var socNoteLabel = ui.Label('', HINT_STYLE);
+/**
+ * Rebuild the soil carbon dropdown for the selected depth.
+ * @param {string} depth  a DEPTH_OPTIONS value
+ */
+function refreshSocOptions(depth) {
+  var matching = socDatasetsForDepth(depth);
+  var items = matching.map(function (d) {
+    return {label: d.label, value: d.key};
+  });
+  items.push({label: 'Custom - my own GEE asset', value: CUSTOM_KEY});
+
+  socSelect.items().reset(items);
+  socSelect.setValue(matching.length ? matching[0].key : CUSTOM_KEY);
+
+  socDepthNoteLabel.setValue(matching.length
+    ? matching.length + ' global layer(s) available at ' + depth + ' cm.'
+    : 'No global layer available at this depth - supply your own asset below.');
+}
 
 /**
  * @param {string} key
  * @return {string} the hint shown under the soil carbon dropdown
  */
 function describeSocChoice(key) {
-  if (key === CUSTOM_KEY) { return 'Your own asset. Tell the app what the values mean.'; }
-  var cfg = getDatasetByKey(SOC_DATASETS, key);
-  var note = cfg.native_resolution_m + ' m, ' + cfg.depth_cm + ' cm, ' + cfg.units;
-  if (!cfg.is_stock) {
-    note += ' - a concentration, so statistics are disabled for this layer.';
+  if (key === CUSTOM_KEY) {
+    return 'Your own asset. You must say what the values mean before it will compute.';
   }
-  return note;
+  var cfg = getDatasetByKey(SOC_DATASETS, key);
+  if (!cfg) { return ''; }
+  return cfg.native_resolution_m + ' m, ' + cfg.depth_cm + ' cm, ' +
+         QUANTITY[cfg.quantity].unit;
 }
-socNoteLabel.setValue(describeSocChoice(SOC_DATASETS[0].key));
 
 // =============================================================================
 // UI - FOREST SECTION
 // =============================================================================
 
 var forestSelect = ui.Select({
-  items: makeSelectItems(FOREST_DATASETS, 'Custom - my own GEE asset'),
+  items: FOREST_DATASETS.map(function (d) { return {label: d.label, value: d.key}; })
+                        .concat([{label: 'Custom - my own GEE asset', value: CUSTOM_KEY}]),
   value: FOREST_DATASETS[0].key,
   style: {stretch: 'horizontal', margin: '2px 4px'},
   onChange: function (key) {
@@ -536,14 +628,14 @@ var forestCustomPanel = ui.Panel({
 // UI - OPTIONS
 // =============================================================================
 
-// One option until the FRA reporting depth is confirmed. Every dataset config
-// carries depth_cm, so widening this is a configuration change, not a rewrite.
 var depthSelect = ui.Select({
-  items: [{label: '0-30 cm (FRA default)', value: '0-30'}],
+  items: DEPTH_OPTIONS,
   value: '0-30',
-  disabled: true,
-  style: {stretch: 'horizontal', margin: '2px 4px'}
+  style: {stretch: 'horizontal', margin: '2px 4px'},
+  onChange: function (depth) { refreshSocOptions(depth); }
 });
+
+var socDepthNoteLabel = ui.Label('', HINT_STYLE);
 
 var scaleSelect = ui.Select({
   items: SCALE_OPTIONS.map(function (s) { return {label: s + ' m', value: s}; }),
@@ -558,8 +650,9 @@ var driveExportCheckbox = ui.Checkbox({
 });
 
 var optionsWidgets = [
-  ui.Label('Soil depth', BODY_STYLE), depthSelect,
-  ui.Label('All layers currently offered are 0-30 cm.', HINT_STYLE),
+  ui.Label('Soil depth', BODY_STYLE), depthSelect, socDepthNoteLabel,
+  ui.Label('Only layers matching this depth are offered. Depths cannot be ' +
+           'mixed - a 0-30 cm figure is not comparable with a deeper one.', HINT_STYLE),
   ui.Label('Analysis scale', BODY_STYLE), scaleSelect,
   ui.Label('Match this to the finest input. Coarser is faster.', HINT_STYLE)
 ];
@@ -650,6 +743,9 @@ ui.root.widgets().reset([
   })
 ]);
 
+refreshSocOptions(depthSelect.getValue());
+socNoteLabel.setValue(describeSocChoice(socSelect.getValue()));
+
 // =============================================================================
 // RUN
 // =============================================================================
@@ -664,17 +760,15 @@ function resolveSocConfig() {
 
   var asset = socAssetBox.getValue();
   if (!asset) { return null; }
-  var isStock = (socUnitsSelect.getValue() === 'stock');
   return {
     key: CUSTOM_KEY,
-    label: 'Custom soil carbon layer',
+    label: 'My own soil carbon layer',
     asset: asset,
     band: socBandBox.getValue() || null,
-    scale_factor: 1,
-    units: isStock ? 't/ha' : 'g/kg',
+    quantity: socQuantitySelect.getValue(),
+    scale_factor: Number(socScaleFactorBox.getValue()) || 1,
     depth_cm: depthSelect.getValue(),
     native_resolution_m: null,
-    is_stock: isStock,
     citation: 'User-supplied asset: ' + asset
   };
 }
@@ -691,7 +785,7 @@ function resolveForestConfig() {
   if (!asset) { return null; }
   return {
     key: CUSTOM_KEY,
-    label: 'Custom forest layer',
+    label: 'My own forest layer',
     asset: asset,
     type: forestTypeSelect.getValue(),
     band: forestBandBox.getValue() || null,
@@ -705,6 +799,17 @@ function showMessage(text, style) {
   resultsPanel.add(ui.Label(text, style || BODY_STYLE));
 }
 
+/**
+ * The header block, repeated before and after the async result arrives.
+ */
+function showRunHeader(countryName, socCfg, forestCfg, scale) {
+  showMessage(countryName, HEADING_STYLE);
+  showMessage('Forest: ' + forestCfg.label);
+  showMessage('Soil carbon: ' + socCfg.label);
+  showMessage(socCfg.depth_cm + ' cm ' + socCfg.quantity +
+              ', analysed at ' + scale + ' m', HINT_STYLE);
+}
+
 function runAnalysis() {
   resultsPanel.clear();
   map.layers().reset();
@@ -712,70 +817,85 @@ function runAnalysis() {
   var socCfg = resolveSocConfig();
   var forestCfg = resolveForestConfig();
 
-  if (!socCfg) {
-    showMessage('Enter a soil carbon asset ID.', WARN_STYLE);
-    return;
-  }
-  if (!forestCfg) {
-    showMessage('Enter a forest asset ID.', WARN_STYLE);
-    return;
-  }
+  if (!socCfg) { showMessage('Enter a soil carbon asset ID.', WARN_STYLE); return; }
+  if (!forestCfg) { showMessage('Enter a forest asset ID.', WARN_STYLE); return; }
 
   var countryName = countrySelect.getValue();
   var scale = Number(scaleSelect.getValue());
-  var regions = getRegions(countryName);
+  var quantity = QUANTITY[socCfg.quantity];
 
   var socImage = buildSocImage(socCfg);
   var forestArea = buildForestArea(forestCfg);
-  var forestFraction = buildForestFraction(forestCfg);
 
-  map.addLayer(socImage, SOC_VIS, 'Soil carbon (' + socCfg.units + ')', true, 0.8);
-  map.addLayer(forestFraction.selfMask(), FOREST_VIS, 'Forest: ' + forestCfg.label, true, 0.7);
-  map.addLayer(socImage.multiply(forestArea).selfMask(), SOC_IN_FOREST_VIS,
-               'Soil carbon in forest (t per pixel)', false, 1);
+  map.addLayer(socImage,
+               socCfg.quantity === 'stock' ? SOC_STOCK_VIS : SOC_CONC_VIS,
+               'Soil carbon (' + quantity.unit + ')', true, 0.8);
+  map.addLayer(buildForestFraction(forestCfg).selfMask(), FOREST_VIS,
+               'Forest: ' + forestCfg.label, true, 0.7);
 
-  showMessage(countryName, HEADING_STYLE);
-  showMessage('Forest: ' + forestCfg.label);
-  showMessage('Soil carbon: ' + socCfg.label);
-  showMessage('Depth ' + socCfg.depth_cm + ' cm, analysed at ' + scale + ' m', HINT_STYLE);
+  // The per-pixel product is only tonnes of carbon when the input is a stock.
+  // For a concentration it is g/kg*ha, which is not a quantity -- do not draw
+  // it and do not name it.
+  if (quantity.summable) {
+    map.addLayer(socImage.multiply(forestArea).selfMask(), SOC_IN_FOREST_VIS,
+                 'Soil carbon in forest (t C per pixel)', false, 1);
+  }
 
-  // A concentration is not a stock. Summing one as if it were would produce a
-  // number with no physical meaning, so the layer is mapped but not summarised.
-  if (!socCfg.is_stock) {
-    showMessage('This layer is a concentration (' + socCfg.units + '), not a stock. ' +
-                'It is shown on the map but statistics are disabled - the result ' +
-                'would not be a carbon stock. Pick a t/ha layer to get numbers.',
-                WARN_STYLE);
+  showRunHeader(countryName, socCfg, forestCfg, scale);
+
+  if (socCfg.quantity === 'unknown') {
+    showMessage('Cannot compute.', HEADING_STYLE);
+    showMessage('You have not told the app what the values in this layer mean. A stock ' +
+                '(tonnes of carbon per hectare) and a concentration (grams of carbon ' +
+                'per kilogram of soil) are different physical quantities, and the app ' +
+                'cannot tell them apart from the pixel values.', WARN_STYLE);
+    showMessage('The layer is on the map so you can inspect it. Over forest, a 0-30 cm ' +
+                'stock usually reads about 30-150 t C/ha and a concentration about ' +
+                '5-60 g/kg - but check the asset description rather than guessing.', HINT_STYLE);
+    showMessage('Set "What the values mean" under Soil carbon layer, then Run again.');
     return;
   }
 
   showMessage('Computing...', HINT_STYLE);
 
-  var stats = computeCountryStats(socImage, forestArea, regions, scale);
-  var totals = computeTotals(stats);
+  var regions = getRegions(countryName);
+  var stats = computeCountryStats(socImage, forestArea, regions, scale, socCfg);
 
-  totals.evaluate(function (result, error) {
+  computeTotals(stats, socCfg).evaluate(function (result, error) {
     resultsPanel.clear();
-    showMessage(countryName, HEADING_STYLE);
-    showMessage('Forest: ' + forestCfg.label);
-    showMessage('Soil carbon: ' + socCfg.label);
-    showMessage('Depth ' + socCfg.depth_cm + ' cm, analysed at ' + scale + ' m', HINT_STYLE);
+    showRunHeader(countryName, socCfg, forestCfg, scale);
 
-    if (error) {
-      showMessage('Failed: ' + error, WARN_STYLE);
-      return;
-    }
-    if (!result || result.forest_area_ha === null) {
+    if (error) { showMessage('Failed: ' + error, WARN_STYLE); return; }
+    if (!result || result.mean === null) {
       showMessage('No data returned. Try a coarser analysis scale.', WARN_STYLE);
       return;
     }
 
     showMessage('Forest area: ' + formatNumber(result.forest_area_ha / 1000, 1) + ' kha');
-    showMessage('Soil carbon in forest: ' + formatNumber(result.soc_in_forest_t / 1e6, 1) + ' Mt');
-    showMessage('Mean soil carbon in forest: ' +
-                formatNumber(result.mean_soc_t_ha, 1) + ' t/ha', HEADING_STYLE);
+    showMessage('Forest area with soil carbon data: ' +
+                formatNumber(result.coverage_pc, 1) + '%',
+                result.coverage_pc < LOW_COVERAGE_WARN_PC ? WARN_STYLE : BODY_STYLE);
 
-    addFraComparison(countryName);
+    if (quantity.summable) {
+      showMessage('Total soil carbon in forest: ' +
+                  formatNumber(result.soc_in_forest_total / 1e6, 1) + ' Mt C');
+      showMessage('Mean soil carbon in forest: ' +
+                  formatNumber(result.mean, 1) + ' t C/ha', HEADING_STYLE);
+      showMessage('This is the figure FRA asks for: soil organic carbon stock, ' +
+                  socCfg.depth_cm + ' cm, tonnes of carbon per hectare.', HINT_STYLE);
+      addFraComparison(countryName);
+    } else {
+      showMessage('Mean soil carbon concentration in forest: ' +
+                  formatNumber(result.mean, 1) + ' g/kg', HEADING_STYLE);
+      showMessage('NOT the FRA figure. This layer is a concentration - how carbon-rich ' +
+                  'the soil is. FRA asks for a stock - how much carbon is there, in ' +
+                  'tonnes per hectare. A g/kg value cannot be entered in place of a ' +
+                  't C/ha value.', WARN_STYLE);
+      showMessage('No total is shown: adding up a concentration over an area does not ' +
+                  'give a carbon stock. Converting one to the other needs bulk density ' +
+                  'and coarse-fragment maps, which this app does not do.', HINT_STYLE);
+    }
+
     addDownloadLink(stats, socCfg, forestCfg, countryName, scale);
   });
 
@@ -791,7 +911,8 @@ function runAnalysis() {
 }
 
 /**
- * Add the FAO FRA reported figure as a sanity check.
+ * Add the FAO FRA reported figure as a sanity check. Stocks only -- FRA does
+ * not report a concentration, so there is nothing to compare against.
  * @param {string} countryName
  */
 function addFraComparison(countryName) {
@@ -804,7 +925,8 @@ function addFraComparison(countryName) {
 
 /**
  * Add an in-app CSV download link. Works in a published app, unlike
- * Export.table.toDrive.
+ * Export.table.toDrive. The mean column name carries its unit, and the total
+ * column is omitted entirely when it would not be a meaningful quantity.
  * @param {ee.FeatureCollection} stats
  * @param {Object} socCfg
  * @param {Object} forestCfg
@@ -812,13 +934,22 @@ function addFraComparison(countryName) {
  * @param {number} scale
  */
 function addDownloadLink(stats, socCfg, forestCfg, countryName, scale) {
-  var slug = (countryName === GLOBAL_OPTION ? 'global' : countryName.replace(/[^A-Za-z0-9]+/g, '_'));
-  var filename = 'soc_in_forest_' + slug + '_' + forestCfg.key + '_' + socCfg.key + '_' + scale + 'm';
+  var selectors = ['iso3', 'country', 'forest_area_ha', 'forest_area_with_soc_ha',
+                   'soc_data_coverage_pc'];
+  if (QUANTITY[socCfg.quantity].summable) {
+    selectors.push('soc_in_forest_total');
+  }
+  selectors.push(meanColumnName(socCfg));
+
+  var slug = (countryName === GLOBAL_OPTION
+    ? 'global'
+    : countryName.replace(/[^A-Za-z0-9]+/g, '_'));
 
   var url = stats.getDownloadURL({
     format: 'csv',
-    selectors: ['iso3', 'country', 'forest_area_ha', 'soc_in_forest_t', 'mean_soc_t_ha'],
-    filename: filename
+    selectors: selectors,
+    filename: 'soc_in_forest_' + slug + '_' + forestCfg.key + '_' + socCfg.key +
+              '_' + socCfg.depth_cm + 'cm_' + scale + 'm'
   });
 
   resultsPanel.add(ui.Label({

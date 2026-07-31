@@ -1,5 +1,38 @@
 # Changelog — forest_soil_carbon.js (GEE app)
 
+## v0.2.0 (stocks only; depth drives the dataset list; three correctness fixes)
+
+- **Fixed: SoilGrids `ocs_mean` was reported 10× too low.** `scale_factor` was 0.1. ISRIC stores
+  `ocs` already in t/ha — their published "conversion factor 10" converts t/ha *to* kg/m², the
+  other direction. Now 1. Any v0.1.0 SoilGrids figure is wrong by a factor of ten.
+- **Fixed: the mean was biased low wherever the soil layer has gaps.** Forest area was reduced as
+  its own band, so it kept its own mask: forest pixels with no soil data were excluded from the
+  numerator but counted in the denominator. Forest area is now masked to the soil layer before
+  weighting, and the results report **forest area with soil carbon data (%)** so the gap is
+  visible rather than silently absorbed. Reason: this landed directly on the number FRA gets, and
+  GSOCmap does have gaps.
+- **Fixed: a custom asset defaulted to "stock".** A user who ignored the dropdown got a confident
+  t C/ha figure from a layer of undeclared type. The default is now "I do not know", which blocks
+  computation and explains why. `scale_factor` is also now editable — it was hardcoded to 1, so a
+  ×10-stored national layer would have been silently ten times wrong.
+- **Dropped the concentration layers** (SoilGrids `soc_mean`, OpenLandMap). They cannot produce a
+  reportable FRA number, and both are superseded: `soc_mean` by `ocs_mean` from the same model
+  family, OpenLandMap by SoilGrids 2.0. Reason: their plausible numeric ranges overlap with
+  stocks (roughly 20–100 reads as sensible in either unit), so a mislabelled value has no
+  tripwire. Concentration is still accepted as a *user's own* asset, where they declare it —
+  reported as a mean only, total suppressed, labelled as not the FRA figure.
+- **Depth now drives the dataset list.** `DEPTH_OPTIONS` is a real selector; only layers whose
+  `depth_cm` matches appear in the soil carbon dropdown, and a depth with no layers says so.
+  Depths are never mixed in one run. Adding a deeper product later makes its depth selectable on
+  its own, with no code change.
+- **`quantity` replaces `is_stock` + `units`.** Units are looked up from a single `QUANTITY`
+  table rather than stored per dataset, so a config cannot claim to be a stock measured in g/kg.
+- **CSV column names carry their unit** (`mean_soc_t_ha` vs `mean_soc_g_kg`), and the total
+  column is omitted entirely when it would not be a quantity. Reason: the file outlives the
+  session, and a column header is the only unit information that survives into a spreadsheet.
+- The per-pixel "soil carbon in forest" map layer is no longer drawn for concentration inputs —
+  it was labelled tonnes regardless.
+
 ## v0.1.0 (first demo — interactive layer choice)
 
 - **Turned the hand-edited gap-filling script into an app.** The original

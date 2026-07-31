@@ -33,11 +33,17 @@ authoritative figure.
 
 ## Soil depth
 
-All figures are **0–30 cm**. This is provisional: it matches the depth GSOCmap reports and is the
-usual soil carbon reporting standard, but the FRA requirement has not yet been confirmed. The app
-has a depth control with a single option so that widening it later is a configuration change
-rather than a rewrite. Every soil carbon dataset in the app records the depth it actually
-represents.
+The depth selector drives everything else: **only soil carbon layers that actually represent the
+selected depth are offered.** Depths are never mixed within a run, because a 0–30 cm figure is not
+comparable with a deeper one and there is no way to split a deep value back down.
+
+The default is **0–30 cm**, and today both global layers are 0–30 cm, so the other depth options
+show "no global layer available at this depth — supply your own asset". That is honest rather
+than empty: it means a country with a deeper national map can still use the tool, and adding a
+deeper global product later makes that depth selectable with no code change.
+
+0–30 cm is provisional. It matches what GSOCmap reports and is the usual soil carbon reporting
+standard, but the FRA requirement has not been confirmed.
 
 ## Soil carbon stocks vs concentrations
 

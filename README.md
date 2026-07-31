@@ -30,17 +30,22 @@ A published browser app (no account needed) will be linked here once the demo se
 Both the soil carbon and forest dropdowns have a **"Custom — my own GEE asset"** option. Upload
 your national layer as a GEE asset, paste its asset ID, and tell the app what the values mean:
 
-- **Soil carbon** — must be a stock in tonnes per hectare for the reported depth. If your map is
-  a concentration (g/kg, dg/kg) it is not directly comparable and the statistics are blocked;
-  see [`docs/soil_carbon_datasets_review.md`](docs/soil_carbon_datasets_review.md).
+- **Soil carbon** — you must say whether the values are a **stock** (tonnes of carbon per hectare)
+  or a **concentration** (g/kg of soil), because the app cannot tell them apart from the pixel
+  values and they are different physical quantities. Only a stock can be reported to FRA; a
+  concentration gets a mean, no total, and a warning. Set the scale factor if your layer is
+  stored scaled. See [`docs/soil_carbon_datasets_review.md`](docs/soil_carbon_datasets_review.md).
 - **Forest** — a binary mask (1 = forest) or a fractional cover layer (0–1).
 
 ## Datasets
 
 The global layers the app offers, with resolutions, units, citations and caveats:
-[`docs/datasets.md`](docs/datasets.md).
+[`docs/datasets.md`](docs/datasets.md). Only soil carbon **stock** products are offered —
+concentration products cannot produce the figure FRA asks for.
 
-Soil depth is currently **0–30 cm** throughout — see [`docs/scope.md`](docs/scope.md).
+The depth selector filters the soil carbon list: you only see layers that actually represent the
+depth you picked, and depths are never mixed in one run. Both global layers are currently
+**0–30 cm** — see [`docs/scope.md`](docs/scope.md).
 
 ## Scope and status
 

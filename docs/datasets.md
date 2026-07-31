@@ -8,28 +8,49 @@ Users can also supply their own Earth Engine asset for either layer; see the REA
 
 ## Soil carbon
 
-| Dataset | Asset | Band | Resolution | Depth | Units | Usable for stats |
+Only **stock** products are offered — tonnes of carbon per hectare, for a stated depth. That is
+the quantity FRA reports.
+
+| Dataset | Asset | Band | Resolution | Depth | Units | Scale factor |
 |---|---|---|---|---|---|---|
-| GSOCmap 1.5 (FAO) | `projects/ee-andyarnellgee/assets/crosscutting/GSOCmap1_5_0` | single band | ~1 km | 0–30 cm | t/ha | yes |
-| SoilGrids 2.0 OCS | `projects/soilgrids-isric/ocs_mean` | `ocs_0-30cm_mean` | 250 m | 0–30 cm | t/ha (×10) | yes |
-| SoilGrids 2.0 SOC | `projects/soilgrids-isric/soc_mean` | `soc_15-30cm_mean` | 250 m | 15–30 cm | g/kg (×10) | **no** — concentration |
-| OpenLandMap SOC | `OpenLandMap/SOL/SOL_ORGANIC-CARBON_USDA-6A1C_M/v02` | `b30` | 250 m | 0–30 cm | g/kg (×5) | **no** — concentration |
+| GSOCmap 1.5 (FAO) | `projects/ee-andyarnellgee/assets/crosscutting/GSOCmap1_5_0` | single band | ~1 km | 0–30 cm | t C/ha | 1 |
+| SoilGrids 2.0 OCS | `projects/soilgrids-isric/ocs_mean` | `ocs_0-30cm_mean` | 250 m | 0–30 cm | t C/ha | 1 |
 
-The two concentration layers are included so they can be viewed and compared, but the app
-refuses to compute statistics from them. See
-[soil_carbon_datasets_review.md](soil_carbon_datasets_review.md) for why.
+> **The SoilGrids scale factor is 1, not 0.1.** ISRIC's properties table gives `ocs` as *mapped
+> units t/ha, conversion factor 10, conventional units kg/m²* — the ÷10 converts t/ha **to**
+> kg/m², not the other way. The stored integer is already t/ha. Applying 0.1 reports every
+> figure 10× too low. This was a real bug in v0.1.0.
+>
+> Still worth confirming directly:
+> `ee.Image('projects/soilgrids-isric/ocs_mean').bandNames().getInfo()`.
 
-**Scale factors need verifying against the Earth Engine catalogue before these numbers are
-published.** The app applies `scale_factor` from the config; SoilGrids stores integers scaled
-by 10 and OpenLandMap by 5, but confirm per band rather than trusting this file.
+`ocs_mean` has **one** depth only (0–30 cm) — unlike SoilGrids' other properties, it does not
+have the six-interval band structure.
+
+### Deliberately not offered
+
+| Dataset | Why not |
+|---|---|
+| SoilGrids `soc_mean` | Concentration (g/kg), not a stock. Strictly dominated by `ocs_mean` from the same model family |
+| OpenLandMap SOC | Concentration, and an older product superseded by SoilGrids 2.0 |
+| iSDAsoil `carbon_organic` | Concentration; depths 0–20/20–50 cm don't align with 0–30 cm; Africa only |
+
+A concentration says how carbon-rich the soil is, not how much carbon is there, and it cannot be
+reported in an FRA stock field. See
+[soil_carbon_datasets_review.md](soil_carbon_datasets_review.md).
+
+Users can still supply a concentration as their own asset — they must declare it as such, and the
+app reports the mean only, clearly labelled as not the FRA figure.
+
+**Newer version available:** GSOCmap **v1.6** exists (technical report 2022). The app uses the
+v1.5 asset already uploaded to `ee-andyarnellgee`. Upgrading means uploading v1.6 and adding a
+dataset entry.
 
 **Citations**
 
 - FAO & ITPS (2022) *Global Soil Organic Carbon Map (GSOCmap) v1.5*. FAO, Rome.
 - Poggio, L. et al. (2021) SoilGrids 2.0: producing soil information for the globe with quantified
   spatial uncertainty. *SOIL* 7, 217–240. https://doi.org/10.5194/soil-7-217-2021
-- Hengl, T. (2018) *Soil organic carbon content in x5 g/kg at 6 standard depths*. Zenodo.
-  https://doi.org/10.5281/zenodo.1475457
 
 ## Forest
 

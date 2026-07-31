@@ -48,9 +48,20 @@ entry-point; this file is the detail.
 Add one object to `SOC_DATASETS` or `FOREST_DATASETS` in
 [forest_soil_carbon.js](../forest_soil_carbon.js). Do not add branching logic elsewhere.
 
-A SOC entry needs: `key`, `label`, `asset`, `band`, `scale_factor`, `units`, `depth_cm`,
-`native_resolution_m`, `is_stock`, `citation`. If `is_stock` is `false` the app will offer the
-layer for display but refuse to compute statistics from it — that is intentional.
+A SOC entry needs: `key`, `label`, `asset`, `band`, `quantity`, `scale_factor`, `depth_cm`,
+`native_resolution_m`, `citation`.
+
+`quantity` is the primitive that decides what may be reported — `'stock'`, `'concentration'` or
+`'unknown'`, keying into the `QUANTITY` table. **Units are never stored per dataset**; they are
+looked up from that table, so a config cannot claim to be a stock measured in g/kg. Only
+`'stock'` layers get a total and the FRA comparison line.
+
+`depth_cm` must match a `DEPTH_OPTIONS` value or the layer will never appear in the dropdown —
+the depth selector filters the dataset list. Depths are never mixed in one run.
+
+Ship only single-band layers at a stated depth. Products that split the profile into intervals
+(SoilGrids `soc_mean`) or report at point depths (OpenLandMap) are deliberately excluded; see
+[docs/soil_carbon_datasets_review.md](../docs/soil_carbon_datasets_review.md).
 
 A forest entry needs: `key`, `label`, `asset`, `type`, `year`, `citation`, plus the fields that
 `type` implies (`prop_band` + `area_band` for `prop_aggregated`; `band` + `threshold` for
