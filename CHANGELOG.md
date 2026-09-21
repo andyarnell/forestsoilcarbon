@@ -1,5 +1,27 @@
 # Changelog — forest_soil_carbon.js (GEE app)
 
+## v0.6.0-alpha (per-country GSOCmap provenance)
+
+- **New module [modules/gsocMeta.js](modules/gsocMeta.js)** - all 195 country entries of Annex D
+  of the GSOCmap v1.6 technical report (FAO 2022, DOI 10.4060/cb9015en): institution,
+  methodology, sample count, sampling period, and whether the country's tile is a national
+  submission or was gap-filled (69 GSP-modelled, 39 taken from SoilGrids 2.0). Extracted
+  programmatically from the report PDF. Institutions only - the report's personal contact
+  details were deliberately stripped. Upload to `users/andyarnellgee/apps:modules/gsocMeta.js`
+  alongside the app, or the require at the top of the app fails.
+- **The app shows a "Map provenance" line** when GSOCmap is selected and a single country is
+  chosen: what that country's tile is built on, or an explicit "no country entry" message.
+  Wired through two new config keys on the GSOCmap entry (`meta_format`, `meta_missing`) and a
+  generic `addDatasetMeta()` - no dataset-specific logic outside the config array.
+  Reason: 108 of 195 GSOCmap country tiles are not national submissions, and a reporting
+  officer should see whether the number they are about to report rests on their own
+  institution's data, a GSP model, or SoilGrids.
+- NB the metadata describes **v1.6** submissions while the map asset is still **v1.5.0**.
+  National submissions largely carry over, but the 39 SoilGrids-2.0 external fills are
+  v1.6-specific - and v1.6's external fill being SoilGrids 2.0 means the "gap-filled from an
+  old SoilGrids" concern attaches to v1.5-era releases, not v1.6. Adopting the v1.6 asset
+  (dev notes, open question 6) would align map and metadata; noted in the config comment.
+
 ## v0.5.0 (clip to the selected country)
 
 - **Map layers are clipped to the selected country**, with the border drawn as an outline so the

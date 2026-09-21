@@ -1,5 +1,5 @@
 // Forest Soil Carbon App
-var APP_VERSION = "0.5.0";
+var APP_VERSION = "0.6.0-alpha";
 
 // Changelog: see CHANGELOG.md
 
@@ -27,6 +27,7 @@ var IS_PUBLISHED_APP = false;
 
 var gaulLut = require("users/andyarnellgee/apps:modules/gaulLut.js");
 var fraStats = require("users/andyarnellgee/apps:modules/fraStats.js");
+var gsocMeta = require("users/andyarnellgee/apps:modules/gsocMeta.js");
 
 // =============================================================================
 // CONSTANTS
@@ -132,7 +133,13 @@ var SOC_DATASETS = [
     scale_factor: 1,
     depth_cm: '0-30',
     native_resolution_m: 1000,
-    citation: 'FAO & ITPS (2022) Global Soil Organic Carbon Map (GSOCmap) v1.5. FAO, Rome.'
+    citation: 'FAO & ITPS (2022) Global Soil Organic Carbon Map (GSOCmap) v1.5. FAO, Rome.',
+    // Per-country provenance from the GSOCmap v1.6 technical report, Annex D
+    // (modules/gsocMeta.js). NB the report describes v1.6 while this asset is
+    // v1.5: national submissions largely carry over, but the 39 entries taken
+    // from SoilGrids 2.0 are v1.6-specific. Swap the asset to v1.6 to align.
+    meta_format: gsocMeta.formatGSOC,
+    meta_missing: 'No country entry in the GSOCmap v1.6 technical report.'
   },
   {
     key: 'soilgrids_ocs',
@@ -245,13 +252,16 @@ var lastRun = null;
 var markerLayer = null;
 
 // Built once from GAUL_LUT so ISO3 results can be joined to the name-keyed
-// fraStats tables. gaulLut has no iso3ToName export.
+// fraStats tables, and country names to the ISO3-keyed gsocMeta table.
+// gaulLut exports neither mapping.
 var iso3ToName = {};
+var nameToIso3 = {};
 (function () {
   var codes = Object.keys(gaulLut.GAUL_LUT);
   codes.forEach(function (code) {
     var entry = gaulLut.GAUL_LUT[code];
     iso3ToName[entry.iso3] = entry.name;
+    nameToIso3[entry.name] = entry.iso3;
   });
 })();
 
@@ -972,6 +982,7 @@ function runAnalysis() {
                   'and coarse-fragment maps, which this app does not do.', HINT_STYLE);
     }
 
+    addDatasetMeta(socCfg, countryName);
     addDownloadLink(stats, socCfg, forestCfg, countryName, scale);
   });
 
@@ -1101,6 +1112,24 @@ function addFraComparison(countryName) {
   var fraLine = fraStats.formatFRA(countryName, FRA_YEAR);
   if (fraLine) {
     showMessage('For comparison - ' + fraLine, HINT_STYLE);
+  }
+}
+
+/**
+ * Add the selected soil layer's own per-country provenance line, when its
+ * config carries one (`meta_format`). Generic -- reads only config keys, so
+ * no dataset-specific logic lives here. `meta_missing` is shown when the
+ * lookup has no entry for the country, which is itself worth saying.
+ * @param {Object} socCfg
+ * @param {string} countryName
+ */
+function addDatasetMeta(socCfg, countryName) {
+  if (!socCfg.meta_format || countryName === GLOBAL_OPTION) { return; }
+  var line = socCfg.meta_format(nameToIso3[countryName] || countryName);
+  if (line) {
+    showMessage('Map provenance - ' + line, HINT_STYLE);
+  } else if (socCfg.meta_missing) {
+    showMessage(socCfg.meta_missing, HINT_STYLE);
   }
 }
 
