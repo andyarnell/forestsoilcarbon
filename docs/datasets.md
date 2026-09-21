@@ -36,7 +36,7 @@ have the six-interval band structure.
 | iSDAsoil `carbon_organic` | Concentration; depths 0–20/20–50 cm don't align with 0–30 cm; Africa only |
 
 A concentration says how carbon-rich the soil is, not how much carbon is there, and it cannot be
-reported in an FRA stock field. See
+reported in a FRA stock field. See
 [soil_carbon_datasets_review.md](soil_carbon_datasets_review.md).
 
 Users can still supply a concentration as their own asset — they must declare it as such, and the
