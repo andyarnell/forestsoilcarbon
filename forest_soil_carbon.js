@@ -32,6 +32,27 @@ var fraStats = require("users/andyarnellgee/apps:modules/fraStats.js");
 var gsocMeta = require("users/andyarnellgee/apps:modules/gsocMeta.js");
 var fraSoc = require("users/andyarnellgee/apps:modules/fraSoc.js");
 
+// The app and its data modules ship together, but GEE modules only update on
+// re-paste. A stale module used to fail mid-render ("fraSoc.getSocTotal is
+// not a function") AFTER part of the results panel had drawn -- the missing
+// half looked like an app bug. Check every export up front and fail with the
+// actual fix instead.
+(function () {
+  var missing = [];
+  ['getSoc', 'hasReport', 'hasValue', 'isDeskStudy', 'getLatestSoc',
+   'getSocTotal'].forEach(function (fn) {
+    if (typeof fraSoc[fn] !== 'function') { missing.push('fraSoc.' + fn); }
+  });
+  ['formatGSOC', 'briefGSOC'].forEach(function (fn) {
+    if (typeof gsocMeta[fn] !== 'function') { missing.push('gsocMeta.' + fn); }
+  });
+  if (missing.length) {
+    throw new Error('STALE MODULE PASTE - missing: ' + missing.join(', ') +
+                    '. Re-paste modules/fraSoc.js and/or modules/gsocMeta.js ' +
+                    'from the repo over the GEE modules path, then rerun.');
+  }
+})();
+
 // =============================================================================
 // CONSTANTS
 // =============================================================================

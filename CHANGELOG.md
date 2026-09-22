@@ -10,6 +10,10 @@
   '*' stays: nothing computed. App-only change.
 - Options de-waffled: the two depth hint paragraphs and the layer-count note are gone
   (the note reappears only when no layer matches the depth); the scale hint is one line.
+- Startup module check: a stale GEE paste of fraSoc.js/gsocMeta.js used to throw mid-render
+  (e.g. 'fraSoc.getSocTotal is not a function'), cutting the results panel off after the
+  reported block so the quality and Details expanders silently vanished. The app now checks
+  every module export on load and fails immediately, naming the module to re-paste.
 
 ## v0.7.7-alpha (reported totals; the mean is NOT the only 2d figure)
 
