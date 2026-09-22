@@ -1,5 +1,5 @@
 // Forest Soil Carbon App
-var APP_VERSION = "0.7.0-alpha";
+var APP_VERSION = "0.7.1-alpha";
 
 // Changelog: see CHANGELOG.md
 
@@ -748,6 +748,7 @@ var countrySelect = ui.Select({
   value: GLOBAL_OPTION,
   style: {width: '220px', margin: '4px 8px'},
   onChange: function (name) {
+    if (!name) { return; }  // items().reset() can fire a null change
     if (name !== GLOBAL_OPTION) {
       map.centerObject(getRegions(name), 5);
     }
@@ -777,10 +778,12 @@ function rebuildCountryItems(onlyReported) {
   var current = countrySelect.getValue();
   countrySelect.items().reset([GLOBAL_OPTION].concat(names));
   var keep = (current === GLOBAL_OPTION) || (names.indexOf(current) !== -1);
-  countrySelect.setValue(keep ? current : GLOBAL_OPTION, false);
-  if (!keep) {
-    updatePreview();
-    clearResultsForNewSelection();
+  if (keep) {
+    countrySelect.setValue(current, false);
+  } else {
+    // Fire the change: display, preview and results-clear all follow the one
+    // onChange path, avoiding the Select's set-after-reset display race.
+    countrySelect.setValue(GLOBAL_OPTION, true);
   }
 }
 
@@ -932,6 +935,7 @@ function buildRunContext() {
   if (!socCfg || !forestCfg) { return null; }
 
   var countryName = countrySelect.getValue();
+  if (!countryName) { return null; }  // transient during list rebuilds
   var scale = Number(scaleSelect.getValue());
   var isGlobal = (countryName === GLOBAL_OPTION);
   var regions = getRegions(countryName);
@@ -1072,17 +1076,28 @@ function runAnalysis() {
     var estHead = 'Estimated from ' + (socCfg.short_label || socCfg.label) + ' · ' +
                   (forestCfg.short_label || forestCfg.label);
 
+    // Below ~1 kha the bold mean would describe next to nothing -- say so on
+    // the value itself, and print the area in hectares rather than a rounded
+    // "0.0 kha".
+    var tinyForest = result.forest_area_ha < 1000;
+    var areaLine = tinyForest
+        ? 'Forest area: ' + formatNumber(result.forest_area_ha, 0) + ' ha'
+        : 'Forest area: ' + formatNumber(result.forest_area_ha / 1000, 1) + ' kha';
+
     if (quantity.summable) {
       showMessage(estHead, BLOCKHEAD_STYLE);
       showMessage('Soil carbon: ' + formatNumber(result.mean, 1) + ' t C/ha (mean, ' +
-                  depthLabel + ')', EST_VALUE_STYLE);
-      showMessage('Forest area: ' + formatNumber(result.forest_area_ha / 1000, 1) + ' kha');
+                  depthLabel + (tinyForest
+                      ? ', over just ' + formatNumber(result.forest_area_ha, 0) +
+                        ' ha of forest'
+                      : '') + ')', EST_VALUE_STYLE);
+      showMessage(areaLine);
       addReportedBlock(socCfg, countryName);
     } else {
       showMessage(estHead, BLOCKHEAD_STYLE);
       showMessage('Soil carbon concentration: ' + formatNumber(result.mean, 1) +
                   ' g/kg (mean, ' + depthLabel + ')', EST_VALUE_STYLE);
-      showMessage('Forest area: ' + formatNumber(result.forest_area_ha / 1000, 1) + ' kha');
+      showMessage(areaLine);
       // No reported block here: FRA values are stocks, and echoing them beside
       // a concentration invites exactly the comparison this warning forbids.
       showMessage('NOT the FRA figure. This layer is a concentration - how carbon-rich ' +

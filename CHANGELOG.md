@@ -1,5 +1,16 @@
 # Changelog — forest_soil_carbon.js (GEE app)
 
+## v0.7.1-alpha (filter race and tiny-forest honesty)
+
+- **Filter fallback fires the change**: unticking a filtered-out country now goes through the
+  one onChange path (display, preview, results-clear together), fixing the Select showing
+  "Select a value..." while old results stayed on screen. The country handler also ignores the
+  null change that items().reset() can fire, and buildRunContext returns null on a transiently
+  empty selection.
+- **Tiny-forest display**: below 1 kha the forest area prints in hectares (no more "0.0 kha")
+  and the bold mean carries "over just N ha of forest" - Aksai Chin showed a confident
+  43.7 t C/ha over a few dozen mapped hectares.
+
 ## v0.7.0-alpha (map previews the selection; results never go stale)
 
 - **The map redraws on every selection change** (country, layers, depth, custom asset fields):
