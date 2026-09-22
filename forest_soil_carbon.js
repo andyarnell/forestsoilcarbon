@@ -1,5 +1,5 @@
 // Forest Soil Carbon App
-var APP_VERSION = "0.7.1-alpha";
+var APP_VERSION = "0.7.2-alpha";
 
 // Changelog: see CHANGELOG.md
 
@@ -757,24 +757,37 @@ var countrySelect = ui.Select({
   }
 });
 
-// Filter the country list to those with any FRA-reported soil carbon value.
+// Filter the country list by FRA soil carbon status. 'reported' and 'desk'
+// split the value-holders by who produced the figure -- the country itself,
+// or FAO in a desk study (the gap-filled reports the tool exists to serve).
 // Rebuilding the Select's items is the same pattern refreshSocOptions uses;
 // values stay plain GAUL names so every downstream lookup is unchanged.
-var fraFilterCheckbox = ui.Checkbox({
-  label: 'only countries with a FRA soil carbon figure',
-  value: false,
-  onChange: function (on) { rebuildCountryItems(on); },
-  style: {fontSize: '10px', margin: '12px 4px 0 0'}
+var FRA_FILTER_MODES = [
+  {label: 'All countries', value: 'all'},
+  {label: 'Any FRA soil carbon figure', value: 'any'},
+  {label: 'Country-reported figure', value: 'reported'},
+  {label: 'FAO estimate (desk study)', value: 'desk'}
+];
+
+var fraFilterSelect = ui.Select({
+  items: FRA_FILTER_MODES,
+  value: 'all',
+  onChange: function (mode) { rebuildCountryItems(mode); },
+  style: {width: '190px', margin: '4px 8px 4px 0'}
 });
 
-function rebuildCountryItems(onlyReported) {
-  var names = gaulLut.country_names;
-  if (onlyReported) {
-    names = names.filter(function (n) {
-      var iso3 = nameToIso3[n];
-      return iso3 ? fraSoc.hasValue(iso3) : false;
-    });
-  }
+function countryPassesFilter(name, mode) {
+  if (mode === 'all') { return true; }
+  var iso3 = nameToIso3[name];
+  if (!iso3 || !fraSoc.hasValue(iso3)) { return false; }
+  if (mode === 'any') { return true; }
+  return fraSoc.isDeskStudy(iso3) === (mode === 'desk');
+}
+
+function rebuildCountryItems(mode) {
+  var names = gaulLut.country_names.filter(function (n) {
+    return countryPassesFilter(n, mode);
+  });
   var current = countrySelect.getValue();
   countrySelect.items().reset([GLOBAL_OPTION].concat(names));
   var keep = (current === GLOBAL_OPTION) || (names.indexOf(current) !== -1);
@@ -798,7 +811,8 @@ var topBar = ui.Panel({
     ui.Label('Forest Soil Carbon', {fontWeight: 'bold', fontSize: '18px', margin: '4px 8px'}),
     ui.Label('Country', {fontSize: '11px', margin: '8px 0 0 8px'}),
     countrySelect,
-    fraFilterCheckbox,
+    ui.Label('Show', {fontSize: '11px', margin: '8px 0 0 0'}),
+    fraFilterSelect,
     runButton,
     ui.Panel({style: {stretch: 'horizontal'}}),
     ui.Label('v' + APP_VERSION, {fontSize: '10px', color: '#888', margin: '8px'})

@@ -1,5 +1,16 @@
 # Changelog — forest_soil_carbon.js (GEE app)
 
+## v0.7.2-alpha (filter splits country-reported from FAO desk studies)
+
+- **The country filter is now a dropdown** ("Show"): All countries / Any FRA soil carbon
+  figure / Country-reported figure / FAO estimate (desk study). The last two split the
+  value-holders by who produced the figure - the country itself, or FAO in a desk study, the
+  gap-filled reports this tool exists to serve. fraSoc gains isDeskStudy(); **fraSoc.js must be
+  re-uploaded to the GEE modules path** (also required since v0.7.0's hasValue - a stale copy
+  errors with "fraSoc.hasValue is not a function").
+- tools/fra_soc/build.py's module template caught up with the hand-added helpers (getSoc,
+  hasReport, hasValue, isDeskStudy, VERSION, CITATION), so regenerating no longer loses them.
+
 ## v0.7.1-alpha (filter race and tiny-forest honesty)
 
 - **Filter fallback fires the change**: unticking a filtered-out country now goes through the

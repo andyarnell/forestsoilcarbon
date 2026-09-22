@@ -118,7 +118,9 @@ with open(os.path.join(DIR, "fra_soil_carbon.csv"), "w", newline="", encoding="u
 # ---- fraSoc.js ----
 data_js = json.dumps(js_data, indent=2, sort_keys=True)
 js = f"""/**
- * fraSoc.js — FRA-reported forest soil organic carbon, per country (DRAFT lookup module).
+ * fraSoc.js — FRA-reported forest soil organic carbon, per country.
+ * Usage: var fraSoc = require('users/andyarnellgee/apps:modules/fraSoc.js');
+ * Regenerate with tools/fra_soc/ (fetch.py + build.py).
  *
  * Source: FRA data platform API (fra-data.fao.org), the same JSON the platform frontend uses.
  *   Endpoint: /api/cycle-data/table/table-data?assessmentName=fra&cycleName=2025
@@ -182,10 +184,84 @@ function formatFRASoc(iso3OrName, year) {{
   if (entry.deskStudy) s += ' (FAO desk study)';
   return s;
 }}
+"""
+
+# Helper tail appended as a plain string so the JS braces need no f-string
+# escaping. Keep in step with modules/fraSoc.js.
+js += """
+var VERSION = {
+  cycle: 'FRA 2025, FRA 2020 fallback where entry.cycle says so',
+  retrieved: '__RETRIEVED__',
+  endpoint: 'fra-data.fao.org/api/cycle-data/table/table-data'
+};
+
+var CITATION = 'FAO. 2026. FRA Platform, accessed __RETRIEVED__. ' +
+               'https://fra-data.fao.org. Licence: CC-BY-4.0.';
+
+/**
+ * Reported soil carbon for one year.
+ * @param {string} iso3OrName
+ * @param {number|string} year
+ * @return {Object|null} {value, depthCm, deskStudy, cycle}, or null when the
+ *     country has no figure for that year.
+ */
+function getSoc(iso3OrName, year) {
+  var e = resolve(iso3OrName);
+  if (!e || !e.soc) return null;
+  var v = e.soc[String(year)];
+  if (v === undefined || v === null) return null;
+  return {value: v, depthCm: e.soilDepthCm || null,
+          deskStudy: !!e.deskStudy, cycle: e.cycle};
+}
+
+/**
+ * True when the soil-carbon table has a row for this country. NB the table
+ * holds value-holders only: a non-reporter can be absent here and still file
+ * FRA reports, so callers combine this with fraStats forest-area presence.
+ * @param {string} iso3OrName
+ * @return {boolean}
+ */
+function hasReport(iso3OrName) {
+  return resolve(iso3OrName) !== null;
+}
+
+/**
+ * True when the country has at least one reported soil carbon value in any
+ * year. Some rows carry only the depth field (BDI, DJI, LBN) -- those return
+ * false. Use this for "has a figure" tests; hasReport only proves a row.
+ * @param {string} iso3OrName
+ * @return {boolean}
+ */
+function hasValue(iso3OrName) {
+  var e = resolve(iso3OrName);
+  if (!e || !e.soc) return false;
+  for (var i = 0; i < YEARS.length; i++) {
+    if (e.soc[YEARS[i]] !== undefined && e.soc[YEARS[i]] !== null) return true;
+  }
+  return false;
+}
+
+/**
+ * True when this country's FRA report is an FAO desk study -- the figures were
+ * compiled by FAO, not reported by the country. Combine with hasValue to split
+ * value-holders into country-reported vs gap-filled.
+ * @param {string} iso3OrName
+ * @return {boolean}
+ */
+function isDeskStudy(iso3OrName) {
+  var e = resolve(iso3OrName);
+  return e ? !!e.deskStudy : false;
+}
 
 exports.DATA = DATA;
 exports.formatFRASoc = formatFRASoc;
-"""
+exports.getSoc = getSoc;
+exports.hasReport = hasReport;
+exports.hasValue = hasValue;
+exports.isDeskStudy = isDeskStudy;
+exports.VERSION = VERSION;
+exports.CITATION = CITATION;
+""".replace("__RETRIEVED__", RETRIEVED)
 with open(os.path.join(DIR, "fraSoc.js"), "w", encoding="utf-8") as f:
     f.write(js)
 

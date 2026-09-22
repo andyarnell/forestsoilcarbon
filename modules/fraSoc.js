@@ -1523,10 +1523,23 @@ function hasValue(iso3OrName) {
   return false;
 }
 
+/**
+ * True when this country's FRA report is an FAO desk study -- the figures were
+ * compiled by FAO, not reported by the country. Combine with hasValue to split
+ * value-holders into country-reported vs gap-filled.
+ * @param {string} iso3OrName
+ * @return {boolean}
+ */
+function isDeskStudy(iso3OrName) {
+  var e = resolve(iso3OrName);
+  return e ? !!e.deskStudy : false;
+}
+
 exports.DATA = DATA;
 exports.formatFRASoc = formatFRASoc;
 exports.getSoc = getSoc;
 exports.hasReport = hasReport;
 exports.hasValue = hasValue;
+exports.isDeskStudy = isDeskStudy;
 exports.VERSION = VERSION;
 exports.CITATION = CITATION;
