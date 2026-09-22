@@ -1,5 +1,5 @@
 // Forest Soil Carbon App
-var APP_VERSION = "0.7.5-alpha";
+var APP_VERSION = "0.7.6-alpha";
 
 // Changelog: see CHANGELOG.md
 
@@ -41,9 +41,16 @@ var GAUL_L0_ASSET = 'projects/sat-io/open-datasets/FAO/GAUL/GAUL_2024_L0';
 var GLOBAL_OPTION = 'Global (all countries)';
 var CUSTOM_KEY = 'custom';
 
-// Analysis scale in metres. 1000 m is the native resolution of GSOCmap, the
-// coarsest layer in the default set. Always passed explicitly to reducers.
+// Analysis scale in metres. Always passed explicitly to reducers. 'native'
+// resolves at run time to the SOIL CARBON layer's own grid, read once from the
+// asset (GSOCmap: 30 arc-sec, ~927.7 m -- the scale of the original 2024
+// gap-filling runs; SoilGrids: 250 m). Carbon is the layer whose native grid
+// matters: sampling it coarser goes through GEE's mean pyramids and averages
+// away the within-cell detail exactly where the forest weighting needs it,
+// while the forest FRACTION layers replicate to finer grids without error
+// (and pixelArea keeps the areas exact at any scale).
 var DEFAULT_SCALE = 1000;
+var NATIVE_SCALE_KEY = 'native';
 var SCALE_OPTIONS = ['1000', '500', '250', '100'];
 
 // Year used for the FRA comparison line. fraStats covers 1990/2000/2010/2015/2020.
@@ -705,7 +712,8 @@ var depthSelect = ui.Select({
 var socDepthNoteLabel = ui.Label('', HINT_STYLE);
 
 var scaleSelect = ui.Select({
-  items: SCALE_OPTIONS.map(function (s) { return {label: s + ' m', value: s}; }),
+  items: [{label: 'Native to soil layer', value: NATIVE_SCALE_KEY}]
+      .concat(SCALE_OPTIONS.map(function (s) { return {label: s + ' m', value: s}; })),
   value: String(DEFAULT_SCALE),
   style: {stretch: 'horizontal', margin: '2px 4px'},
   // Scale changes no tile, only the statistics -- clear those, keep the map.
@@ -728,7 +736,10 @@ var optionsWidgets = [
            'global average countries report is 41 cm; the global layers here ' +
            'are 0-30 cm.', HINT_STYLE),
   ui.Label('Analysis scale', BODY_STYLE), scaleSelect,
-  ui.Label('Match this to the finest input. Coarser is faster.', HINT_STYLE)
+  ui.Label('"Native to soil layer" runs on the carbon grid itself (GSOCmap ' +
+           '~928 m, SoilGrids 250 m), so the values being averaged are never ' +
+           'resampled - the original 2024 gap-filling ran this way. Coarser ' +
+           'is faster; finer than the soil grid adds nothing.', HINT_STYLE)
 ];
 if (!IS_PUBLISHED_APP) {
   optionsWidgets.push(driveExportCheckbox);
@@ -961,6 +972,41 @@ function showMessage(text, style) {
   resultsPanel.add(ui.Label(text, style || BODY_STYLE));
 }
 
+// Native scale per asset, read once (a blocking getInfo) and cached for the
+// session, so previews stay instant after the first native-scale lookup.
+var nativeScaleCache = {};
+
+function nativeScaleOf(assetId, band) {
+  if (!(assetId in nativeScaleCache)) {
+    var s = null;
+    try {
+      var img = ee.Image(assetId);
+      img = band ? img.select([band]) : img.select([0]);
+      s = img.projection().nominalScale().getInfo();
+    } catch (e) {
+      s = null;  // bad custom asset ID -- caller falls back
+    }
+    // The WGS84 default projection reports ~111 km: the asset carries no real
+    // grid of its own (composites do this), so 'native' is meaningless.
+    if (s !== null && s > 10000) { s = null; }
+    nativeScaleCache[assetId] = s;
+  }
+  return nativeScaleCache[assetId];
+}
+
+/**
+ * The analysis scale in metres for the current dropdown choice. 'native' is
+ * the soil carbon layer's own grid -- carbon is the layer that must not be
+ * resampled; forest fractions replicate to any grid without error.
+ * @param {Object} socCfg
+ * @return {number}
+ */
+function resolveAnalysisScale(socCfg) {
+  var choice = scaleSelect.getValue();
+  if (choice !== NATIVE_SCALE_KEY) { return Number(choice); }
+  return nativeScaleOf(socCfg.asset, socCfg.band) || DEFAULT_SCALE;
+}
+
 /**
  * Resolve the current widget selections into configs, regions and images.
  * Pure read: no drawing, no server computation. Null when a custom config is
@@ -974,7 +1020,7 @@ function buildRunContext() {
 
   var countryName = countrySelect.getValue();
   if (!countryName) { return null; }  // transient during list rebuilds
-  var scale = Number(scaleSelect.getValue());
+  var scale = resolveAnalysisScale(socCfg);
   var isGlobal = (countryName === GLOBAL_OPTION);
   var regions = getRegions(countryName);
 
@@ -1279,8 +1325,9 @@ function inspectPixel(coords) {
                            WARN_STYLE);
     }
 
-    showInspectorMessage('Sampled at ' + currentCtx.scale + ' m. Values are the analysis ' +
-                         'scale, not the layer\'s native resolution.', HINT_STYLE);
+    showInspectorMessage('Sampled at ' + formatNumber(currentCtx.scale, 1) + ' m. Values ' +
+                         'are the analysis scale, not the layer\'s native resolution.',
+                         HINT_STYLE);
   });
 }
 
@@ -1410,7 +1457,7 @@ function buildDetailsWidgets(result, socCfg, forestCfg, countryName, scale) {
   w.push(ui.Label('Forest: ' + forestCfg.label, HINT_STYLE));
   w.push(ui.Label('Soil carbon: ' + socCfg.label, HINT_STYLE));
   w.push(ui.Label(socCfg.depth_cm + ' cm ' + socCfg.quantity + ', analysed at ' +
-                  scale + ' m', HINT_STYLE));
+                  formatNumber(scale, 1) + ' m', HINT_STYLE));
   if (socCfg.meta_format && countryName !== GLOBAL_OPTION) {
     var line = socCfg.meta_format(nameToIso3[countryName] || countryName);
     if (line) {

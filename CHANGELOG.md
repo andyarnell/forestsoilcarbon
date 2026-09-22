@@ -1,5 +1,17 @@
 # Changelog — forest_soil_carbon.js (GEE app)
 
+## v0.7.6-alpha (native analysis scale)
+
+- **"Native to soil layer" analysis-scale option**: resolves at run time to the carbon
+  asset's own grid, read once via projection().nominalScale().getInfo() and cached
+  (GSOCmap ~927.7 m — the scale of the original 2024 runs, whose CSVs a native run
+  should now reproduce almost exactly; SoilGrids 250 m). Carbon is the layer that must
+  not be resampled: sampled coarser it goes through GEE's mean pyramids and off-grid
+  sampling skips/duplicates cells, while forest fractions replicate to any grid without
+  error and pixelArea keeps areas exact. Falls back to 1000 m when the asset has no
+  real grid (bad custom ID, default-projection composite). Scale prints with one
+  decimal in Details and the inspector; the CSV keeps the exact value. App-only change.
+
 ## v0.7.5-alpha (stale-run marker on the Run button)
 
 - **The Run button carries a "*" while a re-run is needed**, in the pff_4 style: any
