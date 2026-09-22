@@ -1,5 +1,5 @@
 // Forest Soil Carbon App
-var APP_VERSION = "0.7.3-alpha";
+var APP_VERSION = "0.7.4-alpha";
 
 // Changelog: see CHANGELOG.md
 
@@ -762,7 +762,8 @@ var FRA_FILTER_MODES = [
   {label: 'All countries', value: 'all'},
   {label: 'Any FRA soil carbon figure', value: 'any'},
   {label: 'Country-reported figure', value: 'reported'},
-  {label: 'FAO estimate (desk study)', value: 'desk'}
+  {label: 'FAO estimate (desk study)', value: 'desk'},
+  {label: 'No figure - a gap to fill', value: 'gap'}
 ];
 
 var fraFilterSelect = ui.Select({
@@ -775,7 +776,14 @@ var fraFilterSelect = ui.Select({
 function countryPassesFilter(name, mode) {
   if (mode === 'all') { return true; }
   var iso3 = nameToIso3[name];
-  if (!iso3 || !fraSoc.hasValue(iso3)) { return false; }
+  var hasFigure = iso3 ? fraSoc.hasValue(iso3) : false;
+  if (mode === 'gap') {
+    // The gap-filling audience: files FRA reports (has a forest-area row) but
+    // no soil carbon value in any year. Territories outside FRA entirely are
+    // not gaps -- there is no report to fill.
+    return !hasFigure && !!fraStats.FRA_FOREST_AREA[name];
+  }
+  if (!hasFigure) { return false; }
   if (mode === 'any') { return true; }
   return fraSoc.isDeskStudy(iso3) === (mode === 'desk');
 }
