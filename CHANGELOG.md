@@ -1,5 +1,20 @@
 # Changelog — forest_soil_carbon.js (GEE app)
 
+## v0.7.7-alpha (reported totals; the mean is NOT the only 2d figure)
+
+- **Correction**: FRA table 2d reports soil carbon in BOTH units — a tonnes/ha table and
+  a "Total forest carbon (million tonnes)" table (guidelines verbatim; API tables
+  carbonStockAvg / carbonStockTotal). Countries enter either; the platform derives the
+  other from table 1a forest area (cell flag "calculated"). The Details text claimed
+  totals are "not entered in FRA" — wrong, now fixed.
+- **Reported block gains the total row**: "Total soil carbon: N Mt (country-entered /
+  platform-derived)", for the same year as the mean shown. fraSoc gains socTotalMt +
+  totalCalculatedYears (77 of 99 entries; FRA 2025 cycle only, the 2020 schema has no
+  totals table) and getSocTotal(). **fraSoc.js must be re-uploaded.**
+- **Details trimmed**: the total line drops its wrong caveat, the 2d guidance is one
+  sentence covering both units, and the "For comparison - FRA (2020): ... kha forest"
+  line is gone (it duplicated the reported block's forest area row).
+
 ## v0.7.6-alpha (native analysis scale)
 
 - **"Native to soil layer" analysis-scale option**: resolves at run time to the carbon

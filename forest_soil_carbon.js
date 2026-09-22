@@ -1,5 +1,5 @@
 // Forest Soil Carbon App
-var APP_VERSION = "0.7.6-alpha";
+var APP_VERSION = "0.7.7-alpha";
 
 // Changelog: see CHANGELOG.md
 
@@ -1396,6 +1396,13 @@ function addReportedBlock(socCfg, countryName) {
       suffix = socYear + ', latest available - ' + suffix;
     }
     showMessage('Soil carbon: ' + formatNumber(soc.value, 1) + ' t/ha (' + suffix + ')');
+    // 2d's second reporting table. Usually one of the pair is entered and the
+    // platform derives the other from table 1a forest area -- say which.
+    var tot = fraSoc.getSocTotal(iso3, socYear);
+    if (tot) {
+      showMessage('Total soil carbon: ' + formatNumber(tot.value, 1) + ' Mt (' +
+                  (tot.calculated ? 'platform-derived' : 'country-entered') + ')');
+    }
   } else {
     showMessage('Soil carbon: no figure in the country report');
   }
@@ -1438,17 +1445,10 @@ function buildDetailsWidgets(result, socCfg, forestCfg, countryName, scale) {
   var w = [];
   if (QUANTITY[socCfg.quantity].summable) {
     w.push(ui.Label('Total soil carbon in forest: ' +
-                    formatNumber(result.soc_in_forest_total / 1e6, 1) + ' Mt C - ' +
-                    'diagnostic, not entered in FRA. FRA derives totals from the ' +
-                    'forest area a country reports in table 1a.', BODY_STYLE));
-    w.push(ui.Label('FRA table 2d "Soil carbon" takes the mean, in tonnes of carbon per ' +
-                    'hectare, with the depth entered as ' + socCfg.depth_cm.replace('-', '–') +
-                    ' cm in "Soil depth (cm) used for soil carbon". Keep the same depth ' +
-                    'across the time series.', HINT_STYLE));
-    if (countryName !== GLOBAL_OPTION) {
-      var fraLine = fraStats.formatFRA(countryName, FRA_REPORTED.year);
-      if (fraLine) { w.push(ui.Label('For comparison - ' + fraLine, HINT_STYLE)); }
-    }
+                    formatNumber(result.soc_in_forest_total / 1e6, 1) + ' Mt C.', BODY_STYLE));
+    w.push(ui.Label('FRA table 2d takes both the mean (t C/ha, depth in "Soil depth (cm) ' +
+                    'used for soil carbon") and a total (million tonnes); the platform ' +
+                    'derives whichever is left blank from table 1a forest area.', HINT_STYLE));
   } else {
     w.push(ui.Label('No total is shown: adding up a concentration over an area does not ' +
                     'give a carbon stock. Converting one to the other needs bulk density ' +

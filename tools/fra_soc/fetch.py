@@ -40,7 +40,10 @@ def main():
     isos = sorted(c["countryIso"] for c in areas25["countries"])
     print(f"{len(isos)} countries in FRA 2025 area list")
 
-    data25 = fetch_cycle("2025", ["carbonStockAvg", "carbonStockSoilDepth"], isos)
+    # carbonStockAvg = the tonnes/ha table; carbonStockTotal = the million-tonnes
+    # table (2d has both; the platform derives whichever the country left blank,
+    # cell flag "calculated"). The 2020 schema has no totals table.
+    data25 = fetch_cycle("2025", ["carbonStockAvg", "carbonStockSoilDepth", "carbonStockTotal"], isos)
     json.dump(data25, open(os.path.join(DIR, "raw_2025.json"), "w", encoding="utf-8"))
 
     data20 = fetch_cycle("2020", ["carbonStock", "carbonStockSoilDepth"], isos)

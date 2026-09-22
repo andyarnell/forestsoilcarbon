@@ -55,6 +55,9 @@ for iso in isos:
     t25, t20 = d25.get(iso, {}), d20.get(iso, {})
     s25 = soil_series(t25, "carbonStockAvg")
     s20 = soil_series(t20, "carbonStock")
+    # 2d's second table: total soil carbon, million tonnes. FRA 2025 cycle only
+    # (the 2020 schema has no totals table), so it is dropped for fallback rows.
+    tot25 = soil_series(t25, "carbonStockTotal")
 
     if s25:
         cycle, series, depth = "2025", s25, depth_of(t25) or depth_of(t20)
@@ -70,6 +73,8 @@ for iso in isos:
 
     name = labels.get(iso, {}).get("listName", iso)
     calc_years = [y for y in YEARS if y in series and series[y][1]]
+    tot_series = tot25 if cycle == "2025" else {}
+    tot_calc_years = [y for y in YEARS if y in tot_series and tot_series[y][1]]
     notes = []
     if cycle == "2020":
         notes.append("from FRA 2020 cycle (no value in FRA 2025)")
@@ -92,6 +97,8 @@ for iso in isos:
     row = {"country_name": name, "iso3": iso}
     for y in YEARS:
         row[f"soc_t_ha_{y}"] = fmt(series[y][0]) if y in series else ""
+    for y in YEARS:
+        row[f"soc_total_mt_{y}"] = fmt(tot_series[y][0]) if y in tot_series else ""
     row["soil_depth_cm"] = fmt(depth) if depth else ""
     row["source_type"] = source_type
     row["notes"] = "; ".join(notes)
@@ -106,10 +113,16 @@ for iso in isos:
             entry["soc"] = soc
         if calc_years:
             entry["calculatedYears"] = calc_years
+        tot = {y: float(fmt(tot_series[y][0])) for y in YEARS if y in tot_series}
+        if tot:
+            entry["socTotalMt"] = tot
+        if tot_calc_years:
+            entry["totalCalculatedYears"] = tot_calc_years
         js_data[iso] = entry
 
 # ---- CSV ----
-cols = ["country_name", "iso3"] + [f"soc_t_ha_{y}" for y in YEARS] + ["soil_depth_cm", "source_type", "notes"]
+cols = (["country_name", "iso3"] + [f"soc_t_ha_{y}" for y in YEARS]
+        + [f"soc_total_mt_{y}" for y in YEARS] + ["soil_depth_cm", "source_type", "notes"])
 with open(os.path.join(DIR, "fra_soil_carbon.csv"), "w", newline="", encoding="utf-8") as f:
     w = csv.DictWriter(f, fieldnames=cols)
     w.writeheader()
@@ -124,13 +137,15 @@ js = f"""/**
  *
  * Source: FRA data platform API (fra-data.fao.org), the same JSON the platform frontend uses.
  *   Endpoint: /api/cycle-data/table/table-data?assessmentName=fra&cycleName=2025
- *             &tableNames[]=carbonStockAvg&tableNames[]=carbonStockSoilDepth&countryISOs[]=...
+ *             &tableNames[]=carbonStockAvg&tableNames[]=carbonStockSoilDepth
+ *             &tableNames[]=carbonStockTotal&countryISOs[]=...
  *   (FRA 2020 cycle used as fallback, tableNames[]=carbonStock, where a country has no
- *   FRA 2025 value; entry.cycle says which.)
- * Table: FRA 2d "Carbon stock", category "Soil carbon", tonnes/ha; plus reported
- *   "Soil depth (cm) used for soil carbon".
- * Retrieved: {RETRIEVED}. Values flagged in calculatedYears were derived by the platform
- *   (e.g. per-ha value computed from reported totals), not entered directly.
+ *   FRA 2025 value; entry.cycle says which. The 2020 schema has no totals table.)
+ * Table: FRA 2d "Carbon stock", category "Soil carbon", in BOTH its reporting units:
+ *   soc = tonnes/ha (carbonStockAvg), socTotalMt = million tonnes (carbonStockTotal);
+ *   plus reported "Soil depth (cm) used for soil carbon".
+ * Retrieved: {RETRIEVED}. Values flagged in calculatedYears / totalCalculatedYears were
+ *   derived by the platform from the other unit and table 1a forest area, not entered.
  * deskStudy: true = FAO desk study for that country/cycle, not a country report.
  *
  * Plain JS lookup — no Earth Engine API calls.
@@ -267,6 +282,24 @@ function getLatestSoc(iso3OrName) {
   return null;
 }
 
+/**
+ * Reported TOTAL soil carbon for one year, in million tonnes -- 2d's second
+ * reporting table (FRA 2025 cycle only). calculated: the platform derived it
+ * from the per-ha value and table 1a forest area; the country entered the
+ * mean, not this number.
+ * @param {string} iso3OrName
+ * @param {number|string} year
+ * @return {Object|null} {value, calculated}
+ */
+function getSocTotal(iso3OrName, year) {
+  var e = resolve(iso3OrName);
+  if (!e || !e.socTotalMt) return null;
+  var v = e.socTotalMt[String(year)];
+  if (v === undefined || v === null) return null;
+  var calc = (e.totalCalculatedYears || []).indexOf(String(year)) !== -1;
+  return {value: v, calculated: calc};
+}
+
 exports.DATA = DATA;
 exports.formatFRASoc = formatFRASoc;
 exports.getSoc = getSoc;
@@ -274,6 +307,7 @@ exports.hasReport = hasReport;
 exports.hasValue = hasValue;
 exports.isDeskStudy = isDeskStudy;
 exports.getLatestSoc = getLatestSoc;
+exports.getSocTotal = getSocTotal;
 exports.VERSION = VERSION;
 exports.CITATION = CITATION;
 """.replace("__RETRIEVED__", RETRIEVED)
