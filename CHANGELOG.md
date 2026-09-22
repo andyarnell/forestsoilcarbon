@@ -7,6 +7,8 @@
   audience the tool exists for. Territories outside FRA entirely are excluded: there is
   no report to fill. Listed directly under "All countries" as the main alternative;
   the provenance splits follow. App-only change, no module re-upload beyond v0.7.3's.
+- "Selection changed - press Run analysis." shows in red: it replaces figures the user
+  may have been reading.
 
 ## v0.7.3-alpha (scale-safe forest area; latest-year FRA fallback)
 

@@ -1034,7 +1034,9 @@ function updatePreview() {
 function clearResultsForNewSelection() {
   if (!uiReady) { return; }
   resultsPanel.clear();
-  resultsPanel.add(ui.Label('Selection changed - press Run analysis.', HINT_STYLE));
+  // Red: this replaces figures the user may have been reading, and the map
+  // now shows a selection those figures never described.
+  resultsPanel.add(ui.Label('Selection changed - press Run analysis.', WARN_STYLE));
 }
 
 function runAnalysis() {
