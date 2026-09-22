@@ -758,12 +758,14 @@ var countrySelect = ui.Select({
 // or FAO in a desk study (the gap-filled reports the tool exists to serve).
 // Rebuilding the Select's items is the same pattern refreshSocOptions uses;
 // values stay plain GAUL names so every downstream lookup is unchanged.
+// 'gap' sits directly under 'all': the gap-filling audience is the main
+// alternative to no filter, the provenance splits are the refinements.
 var FRA_FILTER_MODES = [
   {label: 'All countries', value: 'all'},
+  {label: 'No figure - a gap to fill', value: 'gap'},
   {label: 'Any FRA soil carbon figure', value: 'any'},
   {label: 'Country-reported figure', value: 'reported'},
-  {label: 'FAO estimate (desk study)', value: 'desk'},
-  {label: 'No figure - a gap to fill', value: 'gap'}
+  {label: 'FAO estimate (desk study)', value: 'desk'}
 ];
 
 var fraFilterSelect = ui.Select({

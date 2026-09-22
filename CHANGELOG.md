@@ -5,7 +5,8 @@
 - **"No figure - a gap to fill" filter option**: countries that file FRA reports (a
   forest-area row exists) but have no soil carbon value in any year - the gap-filling
   audience the tool exists for. Territories outside FRA entirely are excluded: there is
-  no report to fill. App-only change, no module re-upload beyond v0.7.3's.
+  no report to fill. Listed directly under "All countries" as the main alternative;
+  the provenance splits follow. App-only change, no module re-upload beyond v0.7.3's.
 
 ## v0.7.3-alpha (scale-safe forest area; latest-year FRA fallback)
 
