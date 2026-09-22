@@ -1,6 +1,27 @@
 # Changelog — forest_soil_carbon.js (GEE app)
 
+## v0.7.0-alpha (map previews the selection; results never go stale)
 
+- **The map redraws on every selection change** (country, layers, depth, custom asset fields):
+  tiles render lazily so this costs no computation, the app opens showing data, and browsing
+  countries gives immediate visual feedback. New buildRunContext()/drawLayers()/updatePreview()
+  extracted from runAnalysis.
+- **Results clear the moment the selection changes**, replaced by "Selection changed - press
+  Run analysis." Reason: after running one country and browsing to another, the panel kept the
+  old country's figures beside the new country's borders. Figures for an abandoned selection
+  are worse than no figures, so they are removed rather than kept with a staleness note.
+  Comparing countries now means the CSV, or a second Run.
+- **The pixel inspector samples what is on screen**, before or after a Run, reversing the
+  v0.3.0 freeze. The freeze kept the inspector consistent with the map; with the map now
+  showing the current selection, freezing would recreate the exact mismatch v0.5.0 was built
+  to prevent. Checking a custom asset's units by clicking works before ever pressing Run.
+- Scale changes clear the results but keep the map (tiles do not depend on scale).
+- **Country filter fix**: fraSoc gains hasValue(), and the "only countries with a FRA soil
+  carbon figure" filter uses it - Burundi, Djibouti and Lebanon reported a soil depth but no
+  values, so hasReport() admitted them to a filter whose label promises a figure.
+  fraSoc.js must be re-uploaded to the GEE modules path.
+
+## v0.6.3-alpha (parallel row labels)
 
 - **The estimate block now uses the same row labels as the FRA block** (Soil carbon / Forest
   area), under the header "Estimated from <soil map> · <forest map>", so the two blocks read as
