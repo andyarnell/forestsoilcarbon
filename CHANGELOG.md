@@ -1,5 +1,12 @@
 # Changelog — forest_soil_carbon.js (GEE app)
 
+## v0.7.5-alpha (stale-run marker on the Run button)
+
+- **The Run button carries a "*" while a re-run is needed**, in the pff_4 style: any
+  selection change appends it (via clearResultsForNewSelection, the choke point every
+  widget calls) and it clears when a run actually starts computing. The unknown-quantity
+  dead end keeps the marker - nothing ran. App-only change.
+
 ## v0.7.4-alpha (gap filter mode)
 
 - **"No figure - a gap to fill" filter option**: countries that file FRA reports (a

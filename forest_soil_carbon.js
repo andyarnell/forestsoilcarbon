@@ -1,5 +1,5 @@
 // Forest Soil Carbon App
-var APP_VERSION = "0.7.4-alpha";
+var APP_VERSION = "0.7.5-alpha";
 
 // Changelog: see CHANGELOG.md
 
@@ -806,11 +806,29 @@ function rebuildCountryItems(mode) {
   }
 }
 
+// Staleness marker in the pff_4 style: one constant label, an appended '*'
+// while the on-screen results (if any) no longer describe the selection.
+// markRunStale is driven from clearResultsForNewSelection, the single choke
+// point every layer- and option-widget already calls.
+var RUN_LABEL = '▶ Run analysis';
+var runStale = false;
+
 var runButton = ui.Button({
-  label: '▶ Run analysis',
+  label: RUN_LABEL,
   onClick: function () { runAnalysis(); },
   style: {margin: '4px 8px', backgroundColor: '#4CAF50', fontSize: '12px'}
 });
+
+function markRunStale() {
+  if (runStale) { return; }
+  runStale = true;
+  runButton.setLabel(RUN_LABEL + ' *');
+}
+
+function clearRunStale() {
+  runStale = false;
+  runButton.setLabel(RUN_LABEL);
+}
 
 var topBar = ui.Panel({
   widgets: [
@@ -1037,6 +1055,7 @@ function clearResultsForNewSelection() {
   // Red: this replaces figures the user may have been reading, and the map
   // now shows a selection those figures never described.
   resultsPanel.add(ui.Label('Selection changed - press Run analysis.', WARN_STYLE));
+  markRunStale();
 }
 
 function runAnalysis() {
@@ -1076,6 +1095,9 @@ function runAnalysis() {
     return;
   }
 
+  // Only now is the selection actually being computed -- the unknown-quantity
+  // return above leaves the '*' in place because nothing ran.
+  clearRunStale();
   showMessage('Computing...', HINT_STYLE);
 
   // Statistics run on the UNCLIPPED images -- reduceRegions already restricts
