@@ -1,5 +1,5 @@
 // Forest Soil Carbon App
-var APP_VERSION = "0.7.2-alpha";
+var APP_VERSION = "0.7.3-alpha";
 
 // Changelog: see CHANGELOG.md
 
@@ -174,10 +174,12 @@ var SOC_DATASETS = [
 //
 //   type 'prop_aggregated'  1 km images pre-aggregated from a finer source.
 //                           `prop_band` is the fraction of the pixel that is
-//                           forest (0-1); `area_band` is the pixel area.
-//                           NB `pixel_area_km` is MISNAMED -- the values are
-//                           HECTARES (error when the files were made). Do not
-//                           "fix" this by dividing.
+//                           forest (0-1). Area comes from ee.Image.pixelArea()
+//                           like every other type: the assets do carry their
+//                           own pixel_area_km band (HECTARES despite the name)
+//                           but the app must not read it -- a stored
+//                           per-native-pixel area summed at a finer analysis
+//                           scale multiplies every total (see buildForestArea).
 //   type 'binary'           a mask; `threshold` is the value above which a
 //                           pixel counts as forest. Area comes from
 //                           ee.Image.pixelArea() at the analysis scale.
@@ -192,7 +194,6 @@ var FOREST_DATASETS = [
     asset: 'projects/ee-andyarnellgee/assets/misc/team_fra_support/jrc_gfc2020_prop_in_1km_aggr',
     type: 'prop_aggregated',
     prop_band: 'prop_cover_2020',
-    area_band: 'pixel_area_km',  // hectares despite the name
     year: 2020,
     citation: 'Bourgoin, C. et al. (2024) Global map of forest cover 2020 v2. European Commission JRC.'
   },
@@ -203,7 +204,6 @@ var FOREST_DATASETS = [
     asset: 'projects/ee-andyarnellgee/assets/misc/team_fra_support/hansen_10pc_cover_2020_pixel_prop_in_1km_aggr',
     type: 'prop_aggregated',
     prop_band: 'prop_cover_2020',
-    area_band: 'pixel_area_km',
     year: 2020,
     citation: 'Hansen, M.C. et al. (2013) High-resolution global maps of 21st-century forest cover change. Science 342, 850-853.'
   },
@@ -214,7 +214,6 @@ var FOREST_DATASETS = [
     asset: 'projects/ee-andyarnellgee/assets/misc/team_fra_support/hansen_20pc_cover_2020_pixel_prop_in_1km_aggr',
     type: 'prop_aggregated',
     prop_band: 'prop_cover_2020',
-    area_band: 'pixel_area_km',
     year: 2020,
     citation: 'Hansen, M.C. et al. (2013) Science 342, 850-853.'
   },
@@ -225,7 +224,6 @@ var FOREST_DATASETS = [
     asset: 'projects/ee-andyarnellgee/assets/misc/team_fra_support/globland_forest__2020_pixel_prop_in_1km_aggr',
     type: 'prop_aggregated',
     prop_band: 'prop_cover_2020',
-    area_band: 'pixel_area_km',
     year: 2020,
     citation: 'Chen, J. et al. (2015) Global land cover mapping at 30 m resolution. ISPRS J. Photogramm. 103, 7-27.'
   }
@@ -338,14 +336,12 @@ function buildSocImage(cfg) {
  * @return {ee.Image} band 'forest_area_ha'
  */
 function buildForestArea(cfg) {
-  if (cfg.type === 'prop_aggregated') {
-    var src = ee.Image(cfg.asset);
-    // area_band is already hectares despite being called pixel_area_km
-    return src.select([cfg.area_band])
-              .multiply(src.select([cfg.prop_band]))
-              .rename('forest_area_ha');
-  }
-
+  // Fraction x ee.Image.pixelArea() for EVERY type, including prop_aggregated.
+  // The aggregated assets carry their own per-pixel area band, but summing a
+  // stored per-native-pixel value at a finer analysis scale counts each native
+  // pixel (native/scale)^2 times -- at 500 m that tripled every country's
+  // forest area while leaving the mean untouched (both sums inflate together).
+  // pixelArea() is per-OUTPUT-pixel at the analysis scale, so it cannot.
   var pixelHa = ee.Image.pixelArea().divide(10000);
   return buildForestFraction(cfg).multiply(pixelHa).rename('forest_area_ha');
 }
@@ -1293,7 +1289,15 @@ function addReportedBlock(socCfg, countryName) {
   showMessage('Reported in ' + FRA_REPORTED.cycle + ' (' + FRA_REPORTED.year + ' value)',
               BLOCKHEAD_STYLE);
 
+  // Some series stop before the comparison year (Ukraine ends 2010): fall
+  // back to the most recent value rather than telling a filtered-in country
+  // it has no figure, and say on the row which year it is.
   var soc = iso3 ? fraSoc.getSoc(iso3, FRA_REPORTED.year) : null;
+  var socYear = FRA_REPORTED.year;
+  if (!soc && iso3) {
+    soc = fraSoc.getLatestSoc(iso3);
+    if (soc) { socYear = soc.year; }
+  }
   if (soc) {
     var suffix;
     if (soc.deskStudy) {
@@ -1306,6 +1310,9 @@ function addReportedBlock(socCfg, countryName) {
       }
     } else {
       suffix = 'depth not stated';
+    }
+    if (String(socYear) !== String(FRA_REPORTED.year)) {
+      suffix = socYear + ', latest available - ' + suffix;
     }
     showMessage('Soil carbon: ' + formatNumber(soc.value, 1) + ' t/ha (' + suffix + ')');
   } else {

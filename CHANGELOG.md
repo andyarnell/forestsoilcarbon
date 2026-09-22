@@ -1,5 +1,21 @@
 # Changelog — forest_soil_carbon.js (GEE app)
 
+## v0.7.3-alpha (scale-safe forest area; latest-year FRA fallback)
+
+- **Forest area no longer inflates at finer analysis scales.** The pre-aggregated forest
+  layers were summed via their stored per-native-pixel area band, so at 500 m each ~928 m
+  pixel was counted (928/500)² ≈ 3.4 times: Ukraine read 42,387 kha of forest against
+  12,308 kha in the original 2024 JRC run. The mean was untouched (numerator and denominator
+  inflate together) but forest area and total carbon were wrong at any scale finer than
+  native. Forest area is now fraction × ee.Image.pixelArea() for every layer type, which is
+  per-output-pixel and thus correct at any scale; the misnamed pixel_area_km band is no
+  longer read at all.
+- **Reported block falls back to the latest year.** Countries whose FRA series stops early
+  (Ukraine 2010, Austria 2010, Israel 2015) showed "no figure in the country report" despite
+  passing the value filter. fraSoc gains getLatestSoc(); the row now reads e.g.
+  "25.1 t/ha (2010, latest available - FAO estimate, not country-reported)".
+  **fraSoc.js must be re-uploaded** (same re-paste as v0.7.2).
+
 ## v0.7.2-alpha (filter splits country-reported from FAO desk studies)
 
 - **The country filter is now a dropdown** ("Show"): All countries / Any FRA soil carbon

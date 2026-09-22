@@ -253,12 +253,27 @@ function isDeskStudy(iso3OrName) {
   return e ? !!e.deskStudy : false;
 }
 
+/**
+ * The most recent reported soil carbon value, for countries whose series stops
+ * before the comparison year (Ukraine ends 2010, Austria 2010, Israel 2015).
+ * @param {string} iso3OrName
+ * @return {Object|null} getSoc's shape plus {year}, or null with no value at all
+ */
+function getLatestSoc(iso3OrName) {
+  for (var i = YEARS.length - 1; i >= 0; i--) {
+    var s = getSoc(iso3OrName, YEARS[i]);
+    if (s) { s.year = YEARS[i]; return s; }
+  }
+  return null;
+}
+
 exports.DATA = DATA;
 exports.formatFRASoc = formatFRASoc;
 exports.getSoc = getSoc;
 exports.hasReport = hasReport;
 exports.hasValue = hasValue;
 exports.isDeskStudy = isDeskStudy;
+exports.getLatestSoc = getLatestSoc;
 exports.VERSION = VERSION;
 exports.CITATION = CITATION;
 """.replace("__RETRIEVED__", RETRIEVED)
