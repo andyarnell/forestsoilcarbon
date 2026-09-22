@@ -1,5 +1,13 @@
 # Changelog — forest_soil_carbon.js (GEE app)
 
+## v0.6.3-alpha (parallel row labels)
+
+- **The estimate block now uses the same row labels as the FRA block** (Soil carbon / Forest
+  area), under the header "Estimated from <soil map> · <forest map>", so the two blocks read as
+  a line-by-line comparison. The 22 px hero number is replaced by a bold 14 px soil carbon row -
+  GEE labels cannot style part of a line, and the parallel labelling matters more than the big
+  number. "(mean, 0-30 cm)" travels with the value.
+
 ## v0.6.2-alpha (country filter)
 
 - **"Only countries with a FRA soil carbon figure" checkbox** in the top bar filters the

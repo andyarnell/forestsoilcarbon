@@ -1,5 +1,5 @@
 // Forest Soil Carbon App
-var APP_VERSION = "0.6.2-alpha";
+var APP_VERSION = "0.6.3-alpha";
 
 // Changelog: see CHANGELOG.md
 
@@ -246,8 +246,7 @@ var HEADING_STYLE = {fontSize: '13px', fontWeight: 'bold', margin: '4px 0 2px 4p
 var LINK_STYLE = {fontSize: '11px', color: 'blue', textDecoration: 'underline', margin: '4px 0 2px 4px'};
 var WARN_STYLE = {fontSize: '11px', color: '#b00020', margin: '2px 0 2px 4px'};
 var KICKER_STYLE = {fontSize: '11px', color: '#666', margin: '8px 0 0 4px'};
-var HERO_STYLE = {fontSize: '22px', fontWeight: 'bold', color: '#1a1a1a', margin: '0 0 0 4px'};
-var CAP_STYLE = {fontSize: '10px', color: '#666', margin: '0 0 6px 4px'};
+var EST_VALUE_STYLE = {fontSize: '14px', fontWeight: 'bold', margin: '2px 0 2px 4px'};
 var BLOCKHEAD_STYLE = {fontSize: '12px', fontWeight: 'bold', margin: '12px 0 2px 4px'};
 // Tint for the Soil data quality toggle when the tile is not a national
 // submission or coverage is low.
@@ -995,19 +994,22 @@ function runAnalysis() {
     }
 
     var depthLabel = socCfg.depth_cm.replace('-', '–') + ' cm';
-    var mapsLine = 'Maps used: ' + (socCfg.short_label || socCfg.label) + ' · ' +
-                   (forestCfg.short_label || forestCfg.label) +
-                   ' (forest area: ' + formatNumber(result.forest_area_ha / 1000, 0) + ' kha)';
+    // Both blocks share the same row labels (Soil carbon / Forest area), so
+    // the estimate and the FRA report read as one line-by-line comparison.
+    var estHead = 'Estimated from ' + (socCfg.short_label || socCfg.label) + ' · ' +
+                  (forestCfg.short_label || forestCfg.label);
 
     if (quantity.summable) {
-      showMessage(formatNumber(result.mean, 1) + ' t C/ha (' + depthLabel + ')', HERO_STYLE);
-      showMessage('Estimated mean soil carbon in forest', CAP_STYLE);
-      showMessage(mapsLine, BODY_STYLE);
+      showMessage(estHead, BLOCKHEAD_STYLE);
+      showMessage('Soil carbon: ' + formatNumber(result.mean, 1) + ' t C/ha (mean, ' +
+                  depthLabel + ')', EST_VALUE_STYLE);
+      showMessage('Forest area: ' + formatNumber(result.forest_area_ha / 1000, 1) + ' kha');
       addReportedBlock(socCfg, countryName);
     } else {
-      showMessage(formatNumber(result.mean, 1) + ' g/kg (' + depthLabel + ')', HERO_STYLE);
-      showMessage('Estimated mean soil carbon concentration in forest', CAP_STYLE);
-      showMessage(mapsLine, BODY_STYLE);
+      showMessage(estHead, BLOCKHEAD_STYLE);
+      showMessage('Soil carbon concentration: ' + formatNumber(result.mean, 1) +
+                  ' g/kg (mean, ' + depthLabel + ')', EST_VALUE_STYLE);
+      showMessage('Forest area: ' + formatNumber(result.forest_area_ha / 1000, 1) + ' kha');
       // No reported block here: FRA values are stocks, and echoing them beside
       // a concentration invites exactly the comparison this warning forbids.
       showMessage('NOT the FRA figure. This layer is a concentration - how carbon-rich ' +
