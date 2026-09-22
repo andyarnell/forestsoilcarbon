@@ -1507,9 +1507,26 @@ function hasReport(iso3OrName) {
   return resolve(iso3OrName) !== null;
 }
 
+/**
+ * True when the country has at least one reported soil carbon value in any
+ * year. Some rows carry only the depth field (BDI, DJI, LBN) -- those return
+ * false. Use this for "has a figure" tests; hasReport only proves a row.
+ * @param {string} iso3OrName
+ * @return {boolean}
+ */
+function hasValue(iso3OrName) {
+  var e = resolve(iso3OrName);
+  if (!e || !e.soc) return false;
+  for (var i = 0; i < YEARS.length; i++) {
+    if (e.soc[YEARS[i]] !== undefined && e.soc[YEARS[i]] !== null) return true;
+  }
+  return false;
+}
+
 exports.DATA = DATA;
 exports.formatFRASoc = formatFRASoc;
 exports.getSoc = getSoc;
 exports.hasReport = hasReport;
+exports.hasValue = hasValue;
 exports.VERSION = VERSION;
 exports.CITATION = CITATION;

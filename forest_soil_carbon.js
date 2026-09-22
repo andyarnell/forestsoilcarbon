@@ -1,5 +1,5 @@
 // Forest Soil Carbon App
-var APP_VERSION = "0.6.3-alpha";
+var APP_VERSION = "0.7.0-alpha";
 
 // Changelog: see CHANGELOG.md
 
@@ -266,10 +266,14 @@ var appState = {
   }
 };
 
-// Set by runAnalysis so the pixel inspector can sample exactly the images that
-// produced the country figures, rather than rebuilding them from the widgets
-// (which the user may have changed since pressing Run).
-var lastRun = null;
+// The current selection, rebuilt on every widget change and on Run. The map,
+// the pixel inspector and the statistics all read from it, so they can never
+// describe different selections. Replaces the old lastRun freeze: results for
+// an abandoned selection are cleared, not kept.
+var currentCtx = null;
+
+// Guards the results-clearing while startup handlers fire.
+var uiReady = false;
 
 // The click marker, kept so each click replaces the previous one instead of
 // stacking layers.
@@ -555,6 +559,8 @@ var socSelect = ui.Select({
   onChange: function (key) {
     socCustomPanel.style().set({shown: key === CUSTOM_KEY});
     socNoteLabel.setValue(describeSocChoice(key));
+    updatePreview();
+    clearResultsForNewSelection();
   }
 });
 
@@ -562,12 +568,14 @@ var socNoteLabel = ui.Label('', HINT_STYLE);
 
 var socAssetBox = ui.Textbox({
   placeholder: 'projects/your-project/assets/national_soc_map',
-  style: {stretch: 'horizontal', margin: '2px 4px', fontSize: '11px'}
+  style: {stretch: 'horizontal', margin: '2px 4px', fontSize: '11px'},
+  onChange: function () { updatePreview(); clearResultsForNewSelection(); }
 });
 
 var socBandBox = ui.Textbox({
   placeholder: 'band name (blank = first band)',
-  style: {stretch: 'horizontal', margin: '2px 4px', fontSize: '11px'}
+  style: {stretch: 'horizontal', margin: '2px 4px', fontSize: '11px'},
+  onChange: function () { updatePreview(); clearResultsForNewSelection(); }
 });
 
 // Defaults to 'unknown' on purpose. A user who ignores this must not get a
@@ -579,12 +587,14 @@ var socQuantitySelect = ui.Select({
     {label: 'Concentration: grams of carbon per kg of soil (g/kg)', value: 'concentration'}
   ],
   value: 'unknown',
-  style: {stretch: 'horizontal', margin: '2px 4px'}
+  style: {stretch: 'horizontal', margin: '2px 4px'},
+  onChange: function () { updatePreview(); clearResultsForNewSelection(); }
 });
 
 var socScaleFactorBox = ui.Textbox({
   value: '1',
-  style: {stretch: 'horizontal', margin: '2px 4px', fontSize: '11px'}
+  style: {stretch: 'horizontal', margin: '2px 4px', fontSize: '11px'},
+  onChange: function () { updatePreview(); clearResultsForNewSelection(); }
 });
 
 var socCustomPanel = ui.Panel({
@@ -644,17 +654,21 @@ var forestSelect = ui.Select({
   style: {stretch: 'horizontal', margin: '2px 4px'},
   onChange: function (key) {
     forestCustomPanel.style().set({shown: key === CUSTOM_KEY});
+    updatePreview();
+    clearResultsForNewSelection();
   }
 });
 
 var forestAssetBox = ui.Textbox({
   placeholder: 'projects/your-project/assets/national_forest_map',
-  style: {stretch: 'horizontal', margin: '2px 4px', fontSize: '11px'}
+  style: {stretch: 'horizontal', margin: '2px 4px', fontSize: '11px'},
+  onChange: function () { updatePreview(); clearResultsForNewSelection(); }
 });
 
 var forestBandBox = ui.Textbox({
   placeholder: 'band name (blank = first band)',
-  style: {stretch: 'horizontal', margin: '2px 4px', fontSize: '11px'}
+  style: {stretch: 'horizontal', margin: '2px 4px', fontSize: '11px'},
+  onChange: function () { updatePreview(); clearResultsForNewSelection(); }
 });
 
 var forestTypeSelect = ui.Select({
@@ -663,7 +677,8 @@ var forestTypeSelect = ui.Select({
     {label: 'Fractional cover (0-1)', value: 'fraction'}
   ],
   value: 'binary',
-  style: {stretch: 'horizontal', margin: '2px 4px'}
+  style: {stretch: 'horizontal', margin: '2px 4px'},
+  onChange: function () { updatePreview(); clearResultsForNewSelection(); }
 });
 
 var forestCustomPanel = ui.Panel({
@@ -684,7 +699,11 @@ var depthSelect = ui.Select({
   items: DEPTH_OPTIONS,
   value: '0-30',
   style: {stretch: 'horizontal', margin: '2px 4px'},
-  onChange: function (depth) { refreshSocOptions(depth); }
+  onChange: function (depth) {
+    refreshSocOptions(depth);
+    updatePreview();
+    clearResultsForNewSelection();
+  }
 });
 
 var socDepthNoteLabel = ui.Label('', HINT_STYLE);
@@ -692,7 +711,9 @@ var socDepthNoteLabel = ui.Label('', HINT_STYLE);
 var scaleSelect = ui.Select({
   items: SCALE_OPTIONS.map(function (s) { return {label: s + ' m', value: s}; }),
   value: String(DEFAULT_SCALE),
-  style: {stretch: 'horizontal', margin: '2px 4px'}
+  style: {stretch: 'horizontal', margin: '2px 4px'},
+  // Scale changes no tile, only the statistics -- clear those, keep the map.
+  onChange: function () { clearResultsForNewSelection(); }
 });
 
 var driveExportCheckbox = ui.Checkbox({
@@ -730,6 +751,8 @@ var countrySelect = ui.Select({
     if (name !== GLOBAL_OPTION) {
       map.centerObject(getRegions(name), 5);
     }
+    updatePreview();
+    clearResultsForNewSelection();
   }
 });
 
@@ -748,13 +771,17 @@ function rebuildCountryItems(onlyReported) {
   if (onlyReported) {
     names = names.filter(function (n) {
       var iso3 = nameToIso3[n];
-      return iso3 ? fraSoc.hasReport(iso3) : false;
+      return iso3 ? fraSoc.hasValue(iso3) : false;
     });
   }
   var current = countrySelect.getValue();
   countrySelect.items().reset([GLOBAL_OPTION].concat(names));
   var keep = (current === GLOBAL_OPTION) || (names.indexOf(current) !== -1);
   countrySelect.setValue(keep ? current : GLOBAL_OPTION, false);
+  if (!keep) {
+    updatePreview();
+    clearResultsForNewSelection();
+  }
 }
 
 var runButton = ui.Button({
@@ -802,7 +829,7 @@ var resultsPanel = ui.Panel({
 });
 
 var inspectorPanel = ui.Panel({
-  widgets: [ui.Label('Run analysis, then click the map to read values here.', HINT_STYLE)],
+  widgets: [ui.Label('Click the map to read pixel values.', HINT_STYLE)],
   layout: ui.Panel.Layout.flow('vertical')
 });
 
@@ -837,6 +864,8 @@ ui.root.widgets().reset([
 
 refreshSocOptions(depthSelect.getValue());
 socNoteLabel.setValue(describeSocChoice(socSelect.getValue()));
+updatePreview();
+uiReady = true;
 
 // =============================================================================
 // RUN
@@ -891,23 +920,19 @@ function showMessage(text, style) {
   resultsPanel.add(ui.Label(text, style || BODY_STYLE));
 }
 
-function runAnalysis() {
-  resultsPanel.clear();
-  map.layers().reset();
-  markerLayer = null;
-  lastRun = null;
-  inspectorPanel.clear();
-  inspectorPanel.add(ui.Label('Click the map to read values here.', HINT_STYLE));
-
+/**
+ * Resolve the current widget selections into configs, regions and images.
+ * Pure read: no drawing, no server computation. Null when a custom config is
+ * incomplete.
+ * @return {Object|null}
+ */
+function buildRunContext() {
   var socCfg = resolveSocConfig();
   var forestCfg = resolveForestConfig();
-
-  if (!socCfg) { showMessage('Enter a soil carbon asset ID.', WARN_STYLE); return; }
-  if (!forestCfg) { showMessage('Enter a forest asset ID.', WARN_STYLE); return; }
+  if (!socCfg || !forestCfg) { return null; }
 
   var countryName = countrySelect.getValue();
   var scale = Number(scaleSelect.getValue());
-  var quantity = QUANTITY[socCfg.quantity];
   var isGlobal = (countryName === GLOBAL_OPTION);
   var regions = getRegions(countryName);
 
@@ -915,52 +940,100 @@ function runAnalysis() {
   var forestArea = buildForestArea(forestCfg);
   var forestFraction = buildForestFraction(forestCfg);
 
-  // Clip what is drawn to the selected country. The statistics are already
-  // restricted by reduceRegions over the same polygons, so this changes no
-  // number -- but it stops the map showing a global layer while the panel
-  // reports one country, and it makes a clicked pixel outside the border read
-  // "no data" rather than a value that was never in the analysis.
+  // Clip what is drawn to the selected country. The statistics are restricted
+  // by reduceRegions over the same polygons, so clipping changes no number --
+  // but it stops the map showing a global layer while the panel reports one
+  // country, and it makes a click outside the border read "no data".
   function clipToCountry(img) {
     return isGlobal ? img : img.clip(regions);
   }
 
-  var socDisplay = clipToCountry(socImage);
-  var forestFractionDisplay = clipToCountry(forestFraction);
-  var forestAreaDisplay = clipToCountry(forestArea);
-
-  // Hand the inspector the same clipped images that are on the map, so the
-  // map, a clicked pixel and the reported mean all describe one area.
-  lastRun = {
-    socImage: socDisplay,
-    forestFraction: forestFractionDisplay,
-    forestArea: forestAreaDisplay,
-    socCfg: socCfg,
-    forestCfg: forestCfg,
-    scale: scale,
-    countryName: countryName,
-    isGlobal: isGlobal
+  return {
+    socCfg: socCfg, forestCfg: forestCfg,
+    countryName: countryName, scale: scale, isGlobal: isGlobal, regions: regions,
+    socImage: socImage, forestArea: forestArea,
+    socDisplay: clipToCountry(socImage),
+    forestFractionDisplay: clipToCountry(forestFraction),
+    forestAreaDisplay: clipToCountry(forestArea)
   };
+}
 
-  map.addLayer(socDisplay,
-               socCfg.quantity === 'stock' ? SOC_STOCK_VIS : SOC_CONC_VIS,
-               'Soil carbon (' + quantity.unit + ')', true, 0.8);
-  map.addLayer(forestFractionDisplay.selfMask(), FOREST_VIS,
-               'Forest: ' + forestCfg.label, true, 0.7);
+/**
+ * Draw a context's layers, replacing whatever is on the map.
+ * @param {Object} ctx  from buildRunContext
+ */
+function drawLayers(ctx) {
+  map.layers().reset();
+  markerLayer = null;
+
+  map.addLayer(ctx.socDisplay,
+               ctx.socCfg.quantity === 'stock' ? SOC_STOCK_VIS : SOC_CONC_VIS,
+               'Soil carbon (' + QUANTITY[ctx.socCfg.quantity].unit + ')', true, 0.8);
+  map.addLayer(ctx.forestFractionDisplay.selfMask(), FOREST_VIS,
+               'Forest: ' + ctx.forestCfg.label, true, 0.7);
 
   // The per-pixel product is only tonnes of carbon when the input is a stock.
   // For a concentration it is g/kg*ha, which is not a quantity -- do not draw
   // it and do not name it.
-  if (quantity.summable) {
-    map.addLayer(socDisplay.multiply(forestAreaDisplay).selfMask(), SOC_IN_FOREST_VIS,
-                 'Soil carbon in forest (t C per pixel)', false, 1);
+  if (QUANTITY[ctx.socCfg.quantity].summable) {
+    map.addLayer(ctx.socDisplay.multiply(ctx.forestAreaDisplay).selfMask(),
+                 SOC_IN_FOREST_VIS, 'Soil carbon in forest (t C per pixel)', false, 1);
   }
 
   // Outline the border so the clip is visibly a boundary, not a data gap.
-  if (!isGlobal) {
+  if (!ctx.isGlobal) {
     map.addLayer(
-      ee.Image().byte().paint({featureCollection: regions, color: 1, width: 2}),
+      ee.Image().byte().paint({featureCollection: ctx.regions, color: 1, width: 2}),
       {palette: ['#222222']}, 'Country boundary', true);
   }
+}
+
+/**
+ * Redraw map and inspector for the current selection without computing
+ * statistics. Tiles render lazily, so this costs no server computation.
+ * Called from every layer-affecting widget: the map always shows what is
+ * selected. Results are cleared separately -- figures for an abandoned
+ * selection are worse than no figures.
+ */
+function updatePreview() {
+  currentCtx = buildRunContext();
+  inspectorPanel.clear();
+  inspectorPanel.add(ui.Label('Click the map to read pixel values.', HINT_STYLE));
+  if (!currentCtx) {
+    map.layers().reset();
+    markerLayer = null;
+    return;
+  }
+  drawLayers(currentCtx);
+}
+
+function clearResultsForNewSelection() {
+  if (!uiReady) { return; }
+  resultsPanel.clear();
+  resultsPanel.add(ui.Label('Selection changed - press Run analysis.', HINT_STYLE));
+}
+
+function runAnalysis() {
+  resultsPanel.clear();
+
+  var ctx = buildRunContext();
+  if (!ctx) {
+    showMessage('Enter the custom asset ID first.', WARN_STYLE);
+    return;
+  }
+  currentCtx = ctx;
+  drawLayers(ctx);
+  inspectorPanel.clear();
+  inspectorPanel.add(ui.Label('Click the map to read pixel values.', HINT_STYLE));
+
+  var socCfg = ctx.socCfg;
+  var forestCfg = ctx.forestCfg;
+  var countryName = ctx.countryName;
+  var scale = ctx.scale;
+  var quantity = QUANTITY[socCfg.quantity];
+  var socImage = ctx.socImage;
+  var forestArea = ctx.forestArea;
+  var regions = ctx.regions;
 
   showMessage(countryName, KICKER_STYLE);
 
@@ -1059,14 +1132,15 @@ function showInspectorMessage(text, style) {
 }
 
 /**
- * Sample every layer of the last run at a clicked point and report the values.
+ * Sample every layer of the current selection at a clicked point.
  * @param {Object} coords  {lon, lat} from ui.Map.onClick
  */
 function inspectPixel(coords) {
   inspectorPanel.clear();
 
-  if (!lastRun) {
-    showInspectorMessage('Run analysis first, then click the map.', HINT_STYLE);
+  if (!currentCtx) {
+    showInspectorMessage('Choose layers first - a custom asset needs its ID entered.',
+                         HINT_STYLE);
     return;
   }
 
@@ -1080,17 +1154,17 @@ function inspectPixel(coords) {
                        formatNumber(coords.lon, 4), HEADING_STYLE);
   showInspectorMessage('Reading...', HINT_STYLE);
 
-  var quantity = QUANTITY[lastRun.socCfg.quantity];
+  var quantity = QUANTITY[currentCtx.socCfg.quantity];
 
   // One band per reported value, so this costs a single server round trip.
-  var stack = lastRun.socImage.rename('soc_value')
-    .addBands(lastRun.forestFraction.rename('forest_fraction'))
-    .addBands(lastRun.forestArea.rename('forest_area_ha'));
+  var stack = currentCtx.socDisplay.rename('soc_value')
+    .addBands(currentCtx.forestFractionDisplay.rename('forest_fraction'))
+    .addBands(currentCtx.forestAreaDisplay.rename('forest_area_ha'));
 
   stack.reduceRegion({
     reducer: ee.Reducer.first(),
     geometry: point,
-    scale: lastRun.scale
+    scale: currentCtx.scale
   }).evaluate(function (values, error) {
     inspectorPanel.clear();
     showInspectorMessage(formatNumber(coords.lat, 4) + ', ' +
@@ -1115,8 +1189,8 @@ function inspectPixel(coords) {
 
     // Everything masked with a country selected means the click landed outside
     // the clip, which is a different thing from a genuine data gap inside it.
-    if (!lastRun.isGlobal && isBlank(soc) && isBlank(fraction) && isBlank(areaHa)) {
-      showInspectorMessage('Outside ' + lastRun.countryName + '. The layers are clipped ' +
+    if (!currentCtx.isGlobal && isBlank(soc) && isBlank(fraction) && isBlank(areaHa)) {
+      showInspectorMessage('Outside ' + currentCtx.countryName + '. The layers are clipped ' +
                            'to the selected country - click inside the border, or switch ' +
                            'to ' + GLOBAL_OPTION + '.', HINT_STYLE);
       return;
@@ -1146,7 +1220,7 @@ function inspectPixel(coords) {
                            WARN_STYLE);
     }
 
-    showInspectorMessage('Sampled at ' + lastRun.scale + ' m. Values are the analysis ' +
+    showInspectorMessage('Sampled at ' + currentCtx.scale + ' m. Values are the analysis ' +
                          'scale, not the layer\'s native resolution.', HINT_STYLE);
   });
 }

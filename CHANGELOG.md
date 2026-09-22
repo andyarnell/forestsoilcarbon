@@ -1,6 +1,6 @@
 # Changelog — forest_soil_carbon.js (GEE app)
 
-## v0.6.3-alpha (parallel row labels)
+
 
 - **The estimate block now uses the same row labels as the FRA block** (Soil carbon / Forest
   area), under the header "Estimated from <soil map> · <forest map>", so the two blocks read as
