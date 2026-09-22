@@ -1,5 +1,12 @@
 # Changelog — forest_soil_carbon.js (GEE app)
 
+## v0.6.2-alpha (country filter)
+
+- **"Only countries with a FRA soil carbon figure" checkbox** in the top bar filters the
+  country dropdown to the ~89 countries holding any reported value in fraSoc, for quickly
+  finding estimate-vs-reported comparisons. Unchecked shows the full GAUL list; the selection
+  is kept when it survives the filter, otherwise it falls back to Global.
+
 ## v0.6.1-alpha (results redesigned around estimate vs reported)
 
 - **The results panel now shows two blocks**: the app's estimate (hero mean with its depth,

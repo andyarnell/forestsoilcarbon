@@ -1,5 +1,5 @@
 // Forest Soil Carbon App
-var APP_VERSION = "0.6.1-alpha";
+var APP_VERSION = "0.6.2-alpha";
 
 // Changelog: see CHANGELOG.md
 
@@ -734,6 +734,30 @@ var countrySelect = ui.Select({
   }
 });
 
+// Filter the country list to those with any FRA-reported soil carbon value.
+// Rebuilding the Select's items is the same pattern refreshSocOptions uses;
+// values stay plain GAUL names so every downstream lookup is unchanged.
+var fraFilterCheckbox = ui.Checkbox({
+  label: 'only countries with a FRA soil carbon figure',
+  value: false,
+  onChange: function (on) { rebuildCountryItems(on); },
+  style: {fontSize: '10px', margin: '12px 4px 0 0'}
+});
+
+function rebuildCountryItems(onlyReported) {
+  var names = gaulLut.country_names;
+  if (onlyReported) {
+    names = names.filter(function (n) {
+      var iso3 = nameToIso3[n];
+      return iso3 ? fraSoc.hasReport(iso3) : false;
+    });
+  }
+  var current = countrySelect.getValue();
+  countrySelect.items().reset([GLOBAL_OPTION].concat(names));
+  var keep = (current === GLOBAL_OPTION) || (names.indexOf(current) !== -1);
+  countrySelect.setValue(keep ? current : GLOBAL_OPTION, false);
+}
+
 var runButton = ui.Button({
   label: '▶ Run analysis',
   onClick: function () { runAnalysis(); },
@@ -745,6 +769,7 @@ var topBar = ui.Panel({
     ui.Label('Forest Soil Carbon', {fontWeight: 'bold', fontSize: '18px', margin: '4px 8px'}),
     ui.Label('Country', {fontSize: '11px', margin: '8px 0 0 8px'}),
     countrySelect,
+    fraFilterCheckbox,
     runButton,
     ui.Panel({style: {stretch: 'horizontal'}}),
     ui.Label('v' + APP_VERSION, {fontSize: '10px', color: '#888', margin: '8px'})
