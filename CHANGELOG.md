@@ -1,5 +1,37 @@
 # Changelog — forest_soil_carbon.js (GEE app)
 
+## v0.6.1-alpha (results redesigned around estimate vs reported)
+
+- **The results panel now shows two blocks**: the app's estimate (hero mean with its depth,
+  a caption saying "Estimated", and one "Maps used" line carrying the run's own forest area)
+  above a "Reported in FRA 2025 (2020 value)" block echoing what the country itself reported -
+  soil carbon first, aligned with the estimate, then forest area. Reason: the panel printed
+  twelve undifferentiated lines, and nothing distinguished the app's numbers from official ones.
+- **New module [modules/fraSoc.js](modules/fraSoc.js)** - soil carbon reported to FRA per
+  country (t/ha for 1990-2025, the reported depth, desk-study flag), compiled from the FRA data
+  platform API (FRA 2025, FRA 2020 fallback; 99 value-holding countries). Desk-study values are
+  labelled "FAO estimate, not country-reported" so the app never validates its own method
+  against itself - FRA 2025's non-reporter figures came from this same overlay. Reported depths
+  other than the app's are marked "not comparable"; 28 of the 86 depth-reporting countries use
+  a depth other than 30 cm.
+- **Everything else moved behind two expanders**: "Soil data quality" (the GSOCmap tile's
+  per-country provenance in sentences, plus this run's coverage; the toggle tints amber when
+  the tile is not a national submission or coverage is low) and "Details" (total as an
+  explicitly diagnostic figure - FRA derives totals from table 1a forest area - the table 2d
+  instruction, layers and scale, full provenance, citations).
+- **The CSV is now an audit record**: every row carries the datasets, depth, scale, boundary
+  set, app version and run date, so the download alone can justify a figure later.
+- **gsocMeta cleaned and extended**: new `briefGSOC()` powering the quality expander; display
+  guards (the report's "external datasets" filler suppressed, long fields capped, sample counts
+  comma-formatted); a dozen PDF-mangled rows repaired (Belgium and Russia institution blobs,
+  concatenated names, curly apostrophes).
+- **Back to modules**: the v0.6.0 inline test block is removed; the app requires
+  `modules/gsocMeta.js` and `modules/fraSoc.js` from the GEE modules path - upload both before
+  running. Both scrapers are now committed under [tools/](tools/) so the extractions are
+  reproducible.
+- Removed: the old run header, the always-visible total/coverage/2d paragraph, and the separate
+  FRA comparison and provenance lines - all absorbed by the blocks and expanders above.
+
 ## v0.6.0-alpha (per-country GSOCmap provenance)
 
 - **New module [modules/gsocMeta.js](modules/gsocMeta.js)** - all 195 country entries of Annex D
