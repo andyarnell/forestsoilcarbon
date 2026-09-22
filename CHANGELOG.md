@@ -1,5 +1,14 @@
 # Changelog — forest_soil_carbon.js (GEE app)
 
+## v0.7.8-alpha (global runs guarded against the interactive timeout)
+
+- **Global runs finer than 1000 m are refused up front** with "Not computed: ... exceeds
+  the interactive time limit" instead of dying with a timeout after five minutes. 1000 m
+  global runs stay allowed (they pass, barely). In the Code Editor the guard routes to the
+  batch Drive export - queued directly when the Options checkbox is already ticked,
+  otherwise pointed to - since batch tasks have no interactive limit. The Run button's
+  '*' stays: nothing computed. App-only change.
+
 ## v0.7.7-alpha (reported totals; the mean is NOT the only 2d figure)
 
 - **Correction**: FRA table 2d reports soil carbon in BOTH units — a tonnes/ha table and

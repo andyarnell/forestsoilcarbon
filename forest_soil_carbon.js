@@ -1,5 +1,5 @@
 // Forest Soil Carbon App
-var APP_VERSION = "0.7.7-alpha";
+var APP_VERSION = "0.7.8-alpha";
 
 // Changelog: see CHANGELOG.md
 
@@ -1141,8 +1141,36 @@ function runAnalysis() {
     return;
   }
 
+  // A global run finer than 1000 m cannot finish inside GEE's ~5-minute
+  // interactive limit: refuse before computing rather than failing after five
+  // minutes. (1000 m global runs pass, barely.) In the Code Editor the same
+  // statistics can go through a batch Drive export, which has no such limit.
+  // The '*' stays on the Run button: nothing was computed interactively.
+  if (ctx.isGlobal && scale < DEFAULT_SCALE) {
+    showMessage('Not computed: a global run at ' + formatNumber(scale, 1) +
+                ' m exceeds the interactive time limit.', WARN_STYLE);
+    showMessage('Use 1000 m for a global run (still takes minutes), or pick a ' +
+                'single country for finer scales.', HINT_STYLE);
+    if (!IS_PUBLISHED_APP) {
+      if (driveExportCheckbox.getValue()) {
+        Export.table.toDrive({
+          collection: computeCountryStats(socImage, forestArea, regions, scale, socCfg),
+          folder: 'fra_soc_gap_filling',
+          description: 'soc_in_forest_' + forestCfg.key + '_' + socCfg.key,
+          fileFormat: 'CSV'
+        });
+        showMessage('Drive export queued - see the Tasks tab. Batch tasks have no ' +
+                    'interactive limit.', HINT_STYLE);
+      } else {
+        showMessage('Code Editor: tick "Also queue a Drive export" in Options to run ' +
+                    'this as a batch task instead.', HINT_STYLE);
+      }
+    }
+    return;
+  }
+
   // Only now is the selection actually being computed -- the unknown-quantity
-  // return above leaves the '*' in place because nothing ran.
+  // and global-too-fine returns above leave the '*' in place: nothing ran.
   clearRunStale();
   showMessage('Computing...', HINT_STYLE);
 
