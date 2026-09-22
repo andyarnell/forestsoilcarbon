@@ -8,6 +8,8 @@
   batch Drive export - queued directly when the Options checkbox is already ticked,
   otherwise pointed to - since batch tasks have no interactive limit. The Run button's
   '*' stays: nothing computed. App-only change.
+- Options de-waffled: the two depth hint paragraphs and the layer-count note are gone
+  (the note reappears only when no layer matches the depth); the scale hint is one line.
 
 ## v0.7.7-alpha (reported totals; the mean is NOT the only 2d figure)
 

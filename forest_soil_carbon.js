@@ -627,8 +627,9 @@ function refreshSocOptions(depth) {
   socSelect.items().reset(items);
   socSelect.setValue(matching.length ? matching[0].key : CUSTOM_KEY);
 
+  // Only speak up when there is something to act on.
   socDepthNoteLabel.setValue(matching.length
-    ? matching.length + ' global layer(s) available at ' + depth + ' cm.'
+    ? ''
     : 'No global layer available at this depth - supply your own asset below.');
 }
 
@@ -726,20 +727,13 @@ var driveExportCheckbox = ui.Checkbox({
   style: {fontSize: '11px', margin: '4px'}
 });
 
+// Depth guidance lives in docs/scope.md and the Details expander -- the panel
+// itself stays terse.
 var optionsWidgets = [
   ui.Label('Soil depth', BODY_STYLE), depthSelect, socDepthNoteLabel,
-  ui.Label('Only layers matching this depth are offered. Depths cannot be ' +
-           'mixed - a 0-30 cm figure is not comparable with a deeper one.', HINT_STYLE),
-  ui.Label('FRA does not mandate a depth: countries choose one and apply it ' +
-           'consistently across the time series. Report whichever depth you ' +
-           'used in the "Soil depth (cm) used for soil carbon" field. The ' +
-           'global average countries report is 41 cm; the global layers here ' +
-           'are 0-30 cm.', HINT_STYLE),
   ui.Label('Analysis scale', BODY_STYLE), scaleSelect,
-  ui.Label('"Native to soil layer" runs on the carbon grid itself (GSOCmap ' +
-           '~928 m, SoilGrids 250 m), so the values being averaged are never ' +
-           'resampled - the original 2024 gap-filling ran this way. Coarser ' +
-           'is faster; finer than the soil grid adds nothing.', HINT_STYLE)
+  ui.Label('"Native to soil layer" avoids resampling the carbon values. ' +
+           'Coarser is faster; finer than the soil grid adds nothing.', HINT_STYLE)
 ];
 if (!IS_PUBLISHED_APP) {
   optionsWidgets.push(driveExportCheckbox);
