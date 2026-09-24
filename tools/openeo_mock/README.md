@@ -12,13 +12,10 @@ no uploads, just the four figures.
 1. Paste [export_inputs_btn.js](export_inputs_btn.js) into the GEE Code
    Editor, Run, start the three tasks. Outputs land in Drive folder
    `openeo_mock`, on GSOCmap's own grid (nothing is ever resampled).
-2. With Drive for Desktop mounted:
+2. With Drive for Desktop mounted, one line (works in PowerShell and cmd):
 
    ```
-   py tools/openeo_mock/soc_stats.py ^
-      --soc "G:\My Drive\openeo_mock\mock_soc_gsoc_btn.tif" ^
-      --forest "G:\My Drive\openeo_mock\mock_forest_jrc_btn.tif" ^
-      --boundary "G:\My Drive\openeo_mock\mock_boundary_btn.geojson"
+   py tools/openeo_mock/soc_stats.py --soc "G:\My Drive\openeo_mock\mock_soc_gsoc_btn.tif" --forest "G:\My Drive\openeo_mock\mock_forest_jrc_btn.tif" --boundary "G:\My Drive\openeo_mock\mock_boundary_btn.geojson"
    ```
 
 3. Compare with the app: Bhutan, GSOCmap + JRC, scale "Native to soil
