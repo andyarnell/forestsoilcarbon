@@ -1,5 +1,5 @@
 // Forest Soil Carbon App
-var APP_VERSION = "0.7.8-alpha";
+var APP_VERSION = "0.7.9-alpha";
 
 // Changelog: see CHANGELOG.md
 
@@ -171,7 +171,11 @@ var SOC_DATASETS = [
     scale_factor: 1,
     depth_cm: '0-30',
     native_resolution_m: 1000,
-    citation: 'FAO & ITPS (2022) Global Soil Organic Carbon Map (GSOCmap) v1.5. FAO, Rome.',
+    // Unlike the 2020 forest layers, carbon has no single epoch -- say so.
+    published: 2020,
+    vintage: 'published 2020, from national maps and samples of mixed dates - ' +
+             'only a quarter of countries used all post-1990 data',
+    citation: 'FAO & ITPS (2020) Global Soil Organic Carbon Map (GSOCmap) v1.5.0. FAO, Rome.',
     // Per-country provenance from the GSOCmap v1.6 technical report, Annex D
     // (modules/gsocMeta.js). NB the report describes v1.6 while this asset is
     // v1.5: national submissions largely carry over, but the 39 entries taken
@@ -193,6 +197,8 @@ var SOC_DATASETS = [
     scale_factor: 1,
     depth_cm: '0-30',
     native_resolution_m: 250,
+    published: 2020,
+    vintage: 'published 2020, trained on soil profiles sampled 1905-2020',
     citation: 'Poggio, L. et al. (2021) SoilGrids 2.0. SOIL 7, 217-240.'
   }
 ];
@@ -665,7 +671,8 @@ function describeSocChoice(key) {
   var cfg = getDatasetByKey(SOC_DATASETS, key);
   if (!cfg) { return ''; }
   return cfg.native_resolution_m + ' m, ' + cfg.depth_cm + ' cm, ' +
-         QUANTITY[cfg.quantity].unit;
+         QUANTITY[cfg.quantity].unit +
+         (cfg.published ? ', published ' + cfg.published : '');
 }
 
 // =============================================================================
@@ -1501,6 +1508,11 @@ function buildDetailsWidgets(result, socCfg, forestCfg, countryName, scale) {
   w.push(ui.Label('Soil carbon: ' + socCfg.label, HINT_STYLE));
   w.push(ui.Label(socCfg.depth_cm + ' cm ' + socCfg.quantity + ', analysed at ' +
                   formatNumber(scale, 1) + ' m', HINT_STYLE));
+  // Carbon has no single epoch the way the 2020 forest layers do; when the
+  // config states its vintage, put it next to the layer identity.
+  if (socCfg.vintage) {
+    w.push(ui.Label('Soil carbon vintage: ' + socCfg.vintage, HINT_STYLE));
+  }
   if (socCfg.meta_format && countryName !== GLOBAL_OPTION) {
     var line = socCfg.meta_format(nameToIso3[countryName] || countryName);
     if (line) {

@@ -1,5 +1,15 @@
 # Changelog — forest_soil_carbon.js (GEE app)
 
+## v0.7.9-alpha (carbon layer vintage)
+
+- **Carbon datasets state their year** - honestly, which means publication year plus
+  sample vintage, since carbon has no single epoch the way the 2020 forest layers do.
+  The layer hint gains "published 2020"; Details gains a "Soil carbon vintage:" line
+  (GSOCmap: national maps and samples of mixed dates, only a quarter of countries all
+  post-1990; SoilGrids: profiles sampled 1905-2020). New config keys published/vintage.
+- GSOCmap citation year corrected: v1.5.0 is FAO & ITPS **2020** (2022 is the v1.6
+  technical report, which modules/gsocMeta.js cites separately).
+
 ## v0.7.8-alpha (global runs guarded against the interactive timeout)
 
 - **Global runs finer than 1000 m are refused up front** with "Not computed: ... exceeds
