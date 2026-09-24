@@ -309,6 +309,13 @@ var currentCtx = null;
 // Guards the results-clearing while startup handlers fire.
 var uiReady = false;
 
+// Native scale per asset, filled by nativeScaleOf (one blocking getInfo per
+// asset, then cached). Declared HERE, not next to its function: the startup
+// updatePreview() resolves the native default before the RUN section's vars
+// are assigned -- a hoisted function with an unhoisted cache threw
+// "'in' expects an object, not 'undefined'".
+var nativeScaleCache = {};
+
 // The click marker, kept so each click replaces the previous one instead of
 // stacking layers.
 var markerLayer = null;
@@ -996,10 +1003,8 @@ function showMessage(text, style) {
   resultsPanel.add(ui.Label(text, style || BODY_STYLE));
 }
 
-// Native scale per asset, read once (a blocking getInfo) and cached for the
-// session, so previews stay instant after the first native-scale lookup.
-var nativeScaleCache = {};
-
+// Reads an asset's native scale once (a blocking getInfo), caching in
+// nativeScaleCache (declared in STATE -- see the note there).
 function nativeScaleOf(assetId, band) {
   if (!(assetId in nativeScaleCache)) {
     var s = null;

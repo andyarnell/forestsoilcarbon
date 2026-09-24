@@ -7,6 +7,9 @@
   ~927.7 m, the original 2024 runs' scale). Costs one cached ~200 ms lookup at startup.
 - Consequence: a Global run at the default now hits the timeout guard (927.7 < 1000 m);
   its message points to Options → 1000 m. Global was never viable at fine scales anyway.
+- Fix: nativeScaleCache moved to the STATE section - the startup preview resolves the
+  native default before the RUN section's vars are assigned, so the hoisted function met
+  an undefined cache ("'in' expects an object, not 'undefined'", line 1004).
 
 ## v0.7.9-alpha (carbon layer vintage)
 
