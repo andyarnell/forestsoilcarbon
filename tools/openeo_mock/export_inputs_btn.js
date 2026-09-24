@@ -16,6 +16,8 @@ var projInfo = soc.projection().getInfo();  // GSOC grid: EPSG:4326, 30 arc-sec
 
 // Masked pixels become an explicit nodata sentinel, so the mock's nodata
 // handling is deterministic rather than whatever the exporter fills in.
+// NB formatOptions.noData writes the GeoTIFF nodata TAG as well -- without
+// it QGIS renders the -9999s as data (the values alone are not enough).
 var NODATA = -9999;
 
 Export.image.toDrive({
@@ -26,7 +28,7 @@ Export.image.toDrive({
   crs: projInfo.crs,
   crsTransform: projInfo.transform,
   fileFormat: 'GeoTIFF',
-  formatOptions: {cloudOptimized: true}
+  formatOptions: {cloudOptimized: true, noData: NODATA}
 });
 
 Export.image.toDrive({
