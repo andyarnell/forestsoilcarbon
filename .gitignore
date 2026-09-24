@@ -17,3 +17,5 @@ Thumbs.db
 *.csv
 *.tif
 *.tif.aux.xml
+__pycache__/
+*.pyc
