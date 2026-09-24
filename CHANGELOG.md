@@ -1,5 +1,13 @@
 # Changelog — forest_soil_carbon.js (GEE app)
 
+## v0.7.10-alpha (native scale is the default)
+
+- **"Native to soil layer" is now the default analysis scale**, matching the openEO
+  concept note's spec: the standard country run has no resampling at all (GSOCmap
+  ~927.7 m, the original 2024 runs' scale). Costs one cached ~200 ms lookup at startup.
+- Consequence: a Global run at the default now hits the timeout guard (927.7 < 1000 m);
+  its message points to Options → 1000 m. Global was never viable at fine scales anyway.
+
 ## v0.7.9-alpha (carbon layer vintage)
 
 - **Carbon datasets state their year** - honestly, which means publication year plus

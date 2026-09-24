@@ -1,5 +1,5 @@
 // Forest Soil Carbon App
-var APP_VERSION = "0.7.9-alpha";
+var APP_VERSION = "0.7.10-alpha";
 
 // Changelog: see CHANGELOG.md
 
@@ -62,14 +62,16 @@ var GAUL_L0_ASSET = 'projects/sat-io/open-datasets/FAO/GAUL/GAUL_2024_L0';
 var GLOBAL_OPTION = 'Global (all countries)';
 var CUSTOM_KEY = 'custom';
 
-// Analysis scale in metres. Always passed explicitly to reducers. 'native'
-// resolves at run time to the SOIL CARBON layer's own grid, read once from the
-// asset (GSOCmap: 30 arc-sec, ~927.7 m -- the scale of the original 2024
-// gap-filling runs; SoilGrids: 250 m). Carbon is the layer whose native grid
-// matters: sampling it coarser goes through GEE's mean pyramids and averages
-// away the within-cell detail exactly where the forest weighting needs it,
-// while the forest FRACTION layers replicate to finer grids without error
-// (and pixelArea keeps the areas exact at any scale).
+// Analysis scale in metres. Always passed explicitly to reducers. 'native' --
+// THE DEFAULT -- resolves at run time to the SOIL CARBON layer's own grid,
+// read once from the asset (GSOCmap: 30 arc-sec, ~927.7 m -- the scale of the
+// original 2024 gap-filling runs; SoilGrids: 250 m). Carbon is the layer whose
+// native grid matters: sampling it coarser goes through GEE's mean pyramids
+// and averages away the within-cell detail exactly where the forest weighting
+// needs it, while the forest FRACTION layers replicate to finer grids without
+// error (and pixelArea keeps the areas exact at any scale). DEFAULT_SCALE is
+// the fallback when an asset has no readable grid, and the floor below which
+// a Global run is refused (interactive timeout).
 var DEFAULT_SCALE = 1000;
 var NATIVE_SCALE_KEY = 'native';
 var SCALE_OPTIONS = ['1000', '500', '250', '100'];
@@ -743,7 +745,7 @@ var socDepthNoteLabel = ui.Label('', HINT_STYLE);
 var scaleSelect = ui.Select({
   items: [{label: 'Native to soil layer', value: NATIVE_SCALE_KEY}]
       .concat(SCALE_OPTIONS.map(function (s) { return {label: s + ' m', value: s}; })),
-  value: String(DEFAULT_SCALE),
+  value: NATIVE_SCALE_KEY,
   style: {stretch: 'horizontal', margin: '2px 4px'},
   // Scale changes no tile, only the statistics -- clear those, keep the map.
   onChange: function () { clearResultsForNewSelection(); }
@@ -1171,8 +1173,9 @@ function runAnalysis() {
   if (ctx.isGlobal && scale < DEFAULT_SCALE) {
     showMessage('Not computed: a global run at ' + formatNumber(scale, 1) +
                 ' m exceeds the interactive time limit.', WARN_STYLE);
-    showMessage('Use 1000 m for a global run (still takes minutes), or pick a ' +
-                'single country for finer scales.', HINT_STYLE);
+    showMessage('Set Analysis scale to 1000 m in Options for a global run ' +
+                '(still takes minutes), or pick a single country - the default ' +
+                'native scale is fine there.', HINT_STYLE);
     if (!IS_PUBLISHED_APP) {
       if (driveExportCheckbox.getValue()) {
         Export.table.toDrive({
