@@ -19,3 +19,5 @@ Thumbs.db
 *.tif.aux.xml
 __pycache__/
 *.pyc
+tools/openeo_mock/*.tif
+tools/openeo_mock/*.tif.json
