@@ -8,8 +8,10 @@
 var soc = ee.Image('projects/ee-andyarnellgee/assets/crosscutting/GSOCmap1_5_0');
 var forest = ee.Image('projects/ee-andyarnellgee/assets/misc/team_fra_support/jrc_gfc2020_prop_in_1km_aggr')
                  .select('prop_cover_2020');
+var COUNTRY_ISO3 = 'BTN';  // any GAUL ISO3 -- outputs are named after it
+
 var btn = ee.FeatureCollection('projects/sat-io/open-datasets/FAO/GAUL/GAUL_2024_L0')
-              .filter(ee.Filter.eq('iso3_code', 'BTN'));
+              .filter(ee.Filter.eq('iso3_code', COUNTRY_ISO3));
 
 var region = btn.geometry().bounds().buffer(10000);
 var projInfo = soc.projection().getInfo();  // GSOC grid: EPSG:4326, 30 arc-sec
@@ -22,7 +24,7 @@ var NODATA = -9999;
 
 Export.image.toDrive({
   image: soc.unmask(NODATA),
-  description: 'mock_soc_gsoc_btn',
+  description: 'mock_soc_gsoc_' + COUNTRY_ISO3,
   folder: 'openeo_mock',
   region: region,
   crs: projInfo.crs,
@@ -33,7 +35,7 @@ Export.image.toDrive({
 
 Export.image.toDrive({
   image: forest.unmask(0),  // no data = no mapped forest, counts as zero area
-  description: 'mock_forest_jrc_btn',
+  description: 'mock_forest_jrc_' + COUNTRY_ISO3,
   folder: 'openeo_mock',
   region: region,
   crs: projInfo.crs,
@@ -44,7 +46,7 @@ Export.image.toDrive({
 
 Export.table.toDrive({
   collection: btn,
-  description: 'mock_boundary_btn',
+  description: 'mock_boundary_' + COUNTRY_ISO3,
   folder: 'openeo_mock',
   fileFormat: 'GeoJSON'
 });

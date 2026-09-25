@@ -15,13 +15,15 @@ var projInfo = jrc.first().projection().getInfo();  // ~10 m, EPSG:4326
 // no forest" policy, decided HERE at export, not silently in the resampler.
 var binary = jrc.mosaic().select('Map').unmask(0).uint8();
 
+var COUNTRY_ISO3 = 'BTN';  // any GAUL ISO3
+
 var btn = ee.FeatureCollection('projects/sat-io/open-datasets/FAO/GAUL/GAUL_2024_L0')
-              .filter(ee.Filter.eq('iso3_code', 'BTN'));
+              .filter(ee.Filter.eq('iso3_code', COUNTRY_ISO3));
 var region = btn.geometry().bounds().buffer(10000);
 
 Export.image.toDrive({
   image: binary,
-  description: 'mock_forest_jrc10m_binary_btn',
+  description: 'mock_forest_jrc10m_binary_' + COUNTRY_ISO3,
   folder: 'openeo_mock',
   region: region,
   crs: projInfo.crs,

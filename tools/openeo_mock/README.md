@@ -1,10 +1,23 @@
-# openEO mock — analysis and statistics only
+# openEO reference pipeline — soil carbon in forest
 
-A minimal Python reproduction of the soil-carbon workflow, structured so
-each function names the openEO process it stands for. Purpose: validate
-the pilot's process graph and numbers before any platform exists, and
-surface backend questions early (pixel-area handling, `aggregate_spatial`
-edge weighting). Not a tool — no UI, no uploads, just the figures.
+The processing core of the FRA soil carbon workflow in plain Python
+(numpy + rasterio), written as a reference for an openEO implementation:
+each function is named for the openEO process it stands for, the design
+rules are enforced in code rather than described, and the numbers are
+validated against the production Earth Engine runs (table below).
+
+For an implementer, this answers: what the process graph is, where the
+platform must supply what openEO does not (pixel areas, edge weighting),
+what the ingest step must refuse, and what numbers a correct build
+reproduces. It is deliberately not a tool — no UI, no uploads, no auth;
+those are the platform's half.
+
+Design rules carried in code: the analysis grid is always the carbon
+layer's own grid (carbon is never resampled; forest is aggregated to
+meet it); forest uploads are binary 0/1, thresholded at native
+resolution before ingestion; the nodata policy is decided at export,
+never in the resampler; every aggregation passes a source-vs-aggregated
+area check or fails loudly.
 
 ## Layout
 

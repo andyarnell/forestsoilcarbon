@@ -16,6 +16,11 @@ or point it at your own national asset.
 - **Original scripts** ([`gee_scripts/`](gee_scripts/)) — kept for reference, not maintained:
   the hand-edited gap-filling script this app was built from, and the preprocessing script that
   aggregated the global forest layers onto the soil carbon grid.
+- **openEO reference pipeline** ([`tools/openeo_mock/`](tools/openeo_mock/)) — the same
+  processing in plain Python (numpy + rasterio), engine-independent, function-per-openEO-process,
+  with ingest of high-resolution binary forest rasters and built-in area QA. Reproduces the
+  production runs to ~0.1% (validation table in its README); intended as the reference for a
+  platform implementation.
 
 ## Run the GEE app
 
